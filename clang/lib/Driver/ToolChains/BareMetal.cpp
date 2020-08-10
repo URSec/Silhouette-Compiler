@@ -156,8 +156,10 @@ void BareMetal::AddCXXStdlibLibArgs(const ArgList &Args,
 
 void BareMetal::AddLinkRuntimeLib(const ArgList &Args,
                                   ArgStringList &CmdArgs) const {
+#if 0
   CmdArgs.push_back(Args.MakeArgString("-lclang_rt.builtins-" +
                                        getTriple().getArchName() + ".a"));
+#endif
 }
 
 void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,

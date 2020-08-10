@@ -15,6 +15,10 @@
 #include "ARMSubtarget.h"
 #include "ARMTargetObjectFile.h"
 #include "ARMTargetTransformInfo.h"
+#include "ARMSilhouetteLabelCFI.h"
+#include "ARMSilhouetteSFI.h"
+#include "ARMSilhouetteSTR2STRT.h"
+#include "ARMSilhouetteShadowStack.h"
 #include "MCTargetDesc/ARMMCTargetDesc.h"
 #include "TargetInfo/ARMTargetInfo.h"
 #include "llvm/ADT/Optional.h"
@@ -68,6 +72,52 @@ static cl::opt<bool>
 EnableARMLoadStoreOpt("arm-load-store-opt", cl::Hidden,
                       cl::desc("Enable ARM load/store optimization pass"),
                       cl::init(true));
+
+// Silhouette commandline options
+bool SilhouetteStr2Strt;
+static cl::opt<bool, true>
+EnableSilhouetteStr2Strt("enable-arm-silhouette-str2strt",
+                         cl::desc("Enable Silhouette store to unprivileged store pass"),
+                         cl::location(SilhouetteStr2Strt),
+                         cl::init(false), cl::Hidden);
+
+bool SilhouetteMemOverhead;
+static cl::opt<bool, true>
+EnableSilhouetteMemOverhead("enable-arm-silhouette-mem-overhead",
+                            cl::desc("Enable Silhouette memory overhead estimation pass"),
+                            cl::location(SilhouetteMemOverhead),
+                            cl::init(false), cl::Hidden);
+
+bool SilhouetteCFI;
+static cl::opt<bool, true>
+EnableSilhouetteCFI("enable-arm-silhouette-cfi",
+                    cl::desc("Enable Silhouette CFI pass"),
+                    cl::location(SilhouetteCFI),
+                    cl::init(false), cl::Hidden);
+
+bool SilhouetteShadowStack;
+static cl::opt<bool, true>
+EnableSilhouetteShadowStack("enable-arm-silhouette-shadowstack",
+                            cl::desc("Enable Silhouette shadow stack pass"),
+                            cl::location(SilhouetteShadowStack),
+                            cl::init(false), cl::Hidden);
+
+bool SilhouetteInvert;
+static cl::opt<bool, true>
+EnableSilhouetteInvert("enable-arm-silhouette-invert",
+                       cl::desc("Enable Silhouette Invert"),
+                       cl::location(SilhouetteInvert),
+                       cl::init(false), cl::Hidden);
+
+SilhouetteSFIOption SilhouetteSFI;
+static cl::opt<SilhouetteSFIOption, true>
+EnableSilhouetteSFI("enable-arm-silhouette-sfi",
+                    cl::desc("Enable Silhouette SFI"),
+                    cl::location(SilhouetteSFI),
+                    cl::init(NoSFI), cl::Hidden,
+                    cl::values(clEnumValN(NoSFI, "none", "No SFI"),
+                               clEnumValN(SelSFI, "selective", "Selective SFI"),
+                               clEnumValN(FullSFI, "full", "Full SFI")));
 
 // FIXME: Unify control over GlobalMerge.
 static cl::opt<cl::boolOrDefault>
@@ -419,6 +469,10 @@ void ARMPassConfig::addIRPasses() {
   // Match interleaved memory accesses to ldN/stN intrinsics.
   if (TM->getOptLevel() != CodeGenOpt::None)
     addPass(createInterleavedAccessPass());
+
+  if (EnableSilhouetteCFI) {
+    addPass(createIndirectBrExpandPass());
+  }
 }
 
 void ARMPassConfig::addCodeGenPrepare() {
@@ -529,6 +583,25 @@ void ARMPassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None)
     addPass(createARMOptimizeBarriersPass());
 
-  addPass(createARMConstantIslandPass());
   addPass(createARMLowOverheadLoopsPass());
+
+  // Add Silhouette passes.
+
+  if (EnableSilhouetteShadowStack) {
+    addPass(createARMSilhouetteShadowStack());
+  }
+
+  if (EnableSilhouetteSFI != NoSFI) {
+    addPass(createARMSilhouetteSFI());
+  }
+
+  if (EnableSilhouetteStr2Strt) {
+    addPass(createARMSilhouetteSTR2STRT());
+  }
+
+  if (EnableSilhouetteCFI) {
+    addPass(createARMSilhouetteLabelCFI());
+  }
+
+  addPass(createARMConstantIslandPass());
 }

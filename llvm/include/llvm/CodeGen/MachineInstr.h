@@ -11,6 +11,10 @@
 // the back end.
 //
 //===----------------------------------------------------------------------===//
+//
+// Modified at the University of Rochester for the Silhouette Project.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_CODEGEN_MACHINEINSTR_H
 #define LLVM_CODEGEN_MACHINEINSTR_H

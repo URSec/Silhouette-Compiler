@@ -9,6 +9,10 @@
 // This file describes the Thumb2 instruction set.
 //
 //===----------------------------------------------------------------------===//
+//
+// Modified at the University of Rochester for the Silhouette Project.
+//
+//===----------------------------------------------------------------------===//
 
 // IT block predicate field
 def it_pred_asmoperand : AsmOperandClass {

@@ -5,6 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
+//
+// Modified at the University of Rochester for the Silhouette Project.
+//
+//===----------------------------------------------------------------------===//
 
 #include "BareMetal.h"
 

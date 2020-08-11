@@ -10,6 +10,10 @@
 // parameters and the return value as appropriate.
 //
 //===----------------------------------------------------------------------===//
+//
+// Modified at the University of Rochester for the Silhouette Project.
+//
+//===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/None.h"

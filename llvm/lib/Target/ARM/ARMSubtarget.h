@@ -9,6 +9,10 @@
 // This file declares the ARM specific subclass of TargetSubtargetInfo.
 //
 //===----------------------------------------------------------------------===//
+//
+// Modified at the University of Rochester for the Silhouette Project.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LLVM_LIB_TARGET_ARM_ARMSUBTARGET_H
 #define LLVM_LIB_TARGET_ARM_ARMSUBTARGET_H

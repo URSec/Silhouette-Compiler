@@ -16,7 +16,6 @@
 //
 
 #include "ARM.h"
-#include "ARMSilhouetteConvertFuncList.h"
 #include "ARMSilhouetteSFI.h"
 #include "ARMTargetMachine.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -203,15 +202,14 @@ handleSPUncommonImmediate(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
 bool
 ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
 #if 1
-  // Skip certain functions
-  if (funcBlacklist.find(MF.getName()) != funcBlacklist.end()) {
+  // Skip privileged functions
+  if (MF.getFunction().getSection().equals("privileged_functions")) {
+    errs() << "[SFI] Privileged function! skipped: " << MF.getName() << "\n";
     return false;
   }
 #endif
 
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
-
-  unsigned long OldCodeSize = getFunctionCodeSize(MF);
 
   // Iterate over all machine instructions to find stores
   std::deque<MachineInstr *> Stores;
@@ -285,6 +283,15 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
         if (SilhouetteSFI != NoSFI) {
           Stores.push_back(&MI);
         }
+        break;
+
+      // Store Exclusive
+      // ARMv7-M does not support STREXD, so it is not handled
+      case ARM::t2STREX:
+      case ARM::t2STREXB:
+      case ARM::t2STREXH:
+        // Store exclusives, always use SFI
+        Stores.push_back(&MI);
         break;
 
       case ARM::INLINEASM:
@@ -573,6 +580,32 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
       doBitmasking(MI, BaseReg, InstsBefore);
       break;
 
+    // A7.7.165 Encoding T1: STREXB<c> <Rd>,<Rt>,[<Rn>]
+    case ARM::t2STREXB:
+    // A7.7.166 Encoding T1: STREXH<c> <Rd>,<Rt>,[<Rn>]
+    case ARM::t2STREXH:
+      BaseReg = MI.getOperand(2).getReg();
+      // Store exclusives with no immediate; just bit-mask and store
+      doBitmasking(MI, BaseReg, InstsBefore);
+      break;
+
+    // A7.7.164 Encoding T1: STREX<c> <Rd>,<Rt>,[<Rn>{,#<imm8>}]
+    case ARM::t2STREX:
+      BaseReg = MI.getOperand(2).getReg();
+      Imm = MI.getOperand(3).getImm() << 2; // Not ZeroExtend(imm8:'00', 32) yet
+      if (Imm < 256) {
+        // For a small immediate, just bit-mask and store.
+        doBitmasking(MI, BaseReg, InstsBefore);
+      } else {
+        // For a large immediate, handle it separately.
+        // Add, bit-mask, store, and subtract
+        addImmediateToRegister(MI, BaseReg, Imm, InstsBefore);
+        MI.getOperand(3).setImm(0);
+        doBitmasking(MI, BaseReg, InstsBefore);
+        subtractImmediateFromRegister(MI, BaseReg, Imm, InstsAfter);
+      }
+      break;
+
     default:
       llvm_unreachable("Unexpected opcode!");
     }
@@ -584,14 +617,6 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
       insertInstsAfter(MI, InstsAfter);
     }
   }
-
-  unsigned long NewCodeSize = getFunctionCodeSize(MF);
-
-  // Output code size information
-  std::error_code EC;
-  raw_fd_ostream MemStat("./code_size_sfi.stat", EC,
-                         sys::fs::OpenFlags::F_Append);
-  MemStat << MF.getName() << ":" << OldCodeSize << ":" << NewCodeSize << "\n";
 
   return true;
 }

@@ -17,7 +17,6 @@
 
 #include "ARM.h"
 #include "ARMBaseInstrInfo.h"
-#include "ARMSilhouetteConvertFuncList.h"
 #include "ARMSilhouetteShadowStack.h"
 #include "ARMTargetMachine.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -283,13 +282,9 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
 bool
 ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
 #if 1
-  // Skip certain functions
-  if (funcBlacklist.find(MF.getName()) != funcBlacklist.end()) {
-    return false;
-  }
-  // Skip privileged functions in FreeRTOS
-  if (MF.getFunction().getSection().equals("privileged_functions")){
-    errs() << "Privileged function! skipped\n";
+  // Skip privileged functions
+  if (MF.getFunction().getSection().equals("privileged_functions")) {
+    errs() << "[SS] Privileged function! skipped: " << MF.getName() << "\n";
     return false;
   }
 #endif
@@ -301,8 +296,6 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
     errs() << "[SS] Variable-sized objects not promoted in "
            << MF.getName() << "\n";
   }
-
-  unsigned long OldCodeSize = getFunctionCodeSize(MF);
 
   for (MachineBasicBlock & MBB : MF) {
     for (MachineInstr & MI : MBB) {
@@ -356,14 +349,6 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
       }
     }
   }
-
-  unsigned long NewCodeSize = getFunctionCodeSize(MF);
-
-  // Output code size information
-  std::error_code EC;
-  raw_fd_ostream MemStat("./code_size_ss.stat", EC,
-                         sys::fs::OpenFlags::F_Append);
-  MemStat << MF.getName() << ":" << OldCodeSize << ":" << NewCodeSize << "\n";
 
   return true;
 }

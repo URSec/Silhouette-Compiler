@@ -595,7 +595,7 @@ void ARMPassConfig::addPreEmitPass() {
     addPass(createARMSilhouetteShadowStack());
   }
 
-  if (EnableSilhouetteSFI != NoSFI) {
+  if (EnableSilhouetteSFI != NoSFI || EnableSilhouetteStr2Strt) {
     addPass(createARMSilhouetteSFI());
   }
 

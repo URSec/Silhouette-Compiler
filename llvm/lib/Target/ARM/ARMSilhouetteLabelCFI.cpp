@@ -15,7 +15,6 @@
 //
 
 #include "ARM.h"
-#include "ARMSilhouetteConvertFuncList.h"
 #include "ARMSilhouetteLabelCFI.h"
 #include "ARMTargetMachine.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -120,9 +119,9 @@ ARMSilhouetteLabelCFI::insertCFILabelForCall(MachineFunction & MF) {
   MachineBasicBlock & MBB = *MF.begin();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
-  // Use "movs r3, r3" as our CFI label
-  BuildMI(MBB, MBB.begin(), DL, TII->get(ARM::tMOVSr), ARM::R3)
-  .addReg(ARM::R3);
+  // Use "mov r0, r0" as our CFI label
+  BuildMI(MBB, MBB.begin(), DL, TII->get(ARM::tMOVr), ARM::R0)
+  .addReg(ARM::R0);
 }
 
 //
@@ -283,18 +282,12 @@ ARMSilhouetteLabelCFI::insertCFICheckForJump(MachineInstr & MI, unsigned Reg) {
 bool
 ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
 #if 1
-  // Skip certain functions
-  if (funcBlacklist.find(MF.getName()) != funcBlacklist.end()) {
-    return false;
-  }
-  // Skip privileged functions in FreeRTOS
-  if (MF.getFunction().getSection().equals("privileged_functions")){
-    errs() << "Privileged function! skipped\n";
+  // Skip privileged functions
+  if (MF.getFunction().getSection().equals("privileged_functions")) {
+    errs() << "[CFI] Privileged function! skipped: " << MF.getName() << "\n";
     return false;
   }
 #endif
-
-  unsigned long OldCodeSize = getFunctionCodeSize(MF);
 
   //
   // Iterate through all the instructions within the function to locate
@@ -342,7 +335,7 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
 
       default:
         if (MI.isIndirectBranch() || MI.isCall()) {
-          errs() << "[CFI]: unidentified branch/call: " << MI;
+          errs() << "[CFI] Unidentified branch/call: " << MI;
         }
         break;
       }
@@ -396,21 +389,6 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
     default:
       llvm_unreachable("Unexpected opcode");
     }
-  }
-
-  unsigned long NewCodeSize = getFunctionCodeSize(MF);
-
-  // Output code size information
-  std::error_code EC;
-  raw_fd_ostream MemStat("./code_size_cfi.stat", EC,
-                         sys::fs::OpenFlags::F_Append);
-  MemStat << MF.getName() << ":" << OldCodeSize << ":" << NewCodeSize << "\n";
-
-  // Output jump table jump information
-  raw_fd_ostream JTJStat("./jump_table_jump.stat", EC,
-                         sys::fs::OpenFlags::F_Append);
-  for (MachineInstr * MI : JTJs) {
-    JTJStat << MI->getMF()->getName() << "\n";
   }
 
   return true;

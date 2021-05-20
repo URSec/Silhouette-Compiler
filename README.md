@@ -2,10 +2,10 @@
 
 This repository contains the source code of the LLVM-based Silhouette compiler.
 
-## Compile
+## How to Compile
 Compiling the Silhouette compiler is exactly the same as compiling a
 standard LLVM compiler. Therefore you can compile it in whatever way you
 are used to compiling the LLVM compiler infrastructure.
-If you are not familiar with compiling LLVM, you can refer to the
+If you are not familiar with compiling LLVM, you can use this
 [script](https://github.com/URSec/Silhouette-Misc/blob/master/scripts/build.llvm.sh)
-we used for initializing the Makefiles.
+to generate the Makefiles to compile the compiler.

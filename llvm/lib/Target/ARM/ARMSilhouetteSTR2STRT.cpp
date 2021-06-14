@@ -1139,9 +1139,8 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
       }
       Imm2 = Imm;
       // Move from the source register to 2 scratch registers
-      NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD))
-                         .addReg(ScratchReg)
-                         .addReg(ScratchReg2)
+      NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD), ScratchReg)
+                         .addReg(ScratchReg2, RegState::Define)
                          .addReg(SrcReg)
                          .add(predOps(Pred, PredReg)));
       if (BaseReg == ARM::SP && Imm > 251) {
@@ -1392,9 +1391,8 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
           Imm += 8;
         }
         // Move from the source register to 2 scratch registers
-        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD))
-                           .addReg(ScratchReg)
-                           .addReg(ScratchReg2)
+        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD), ScratchReg)
+                           .addReg(ScratchReg2, RegState::Define)
                            .addReg(RegList[i])
                            .add(predOps(Pred, PredReg)));
         NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::t2STRT))
@@ -1449,9 +1447,8 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
           Imm += 8;
         }
         // Move from the source register to 2 scratch registers
-        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD))
-                           .addReg(ScratchReg)
-                           .addReg(ScratchReg2)
+        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD), ScratchReg)
+                           .addReg(ScratchReg2, RegState::Define)
                            .addReg(RegList[i])
                            .add(predOps(Pred, PredReg)));
         NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::t2STRT))
@@ -1510,9 +1507,8 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
           Imm += 8;
         }
         // Move from the source register to 2 scratch registers
-        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD))
-                           .addReg(ScratchReg)
-                           .addReg(ScratchReg2)
+        NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::VMOVRRD), ScratchReg)
+                           .addReg(ScratchReg2, RegState::Define)
                            .addReg(RegList[i])
                            .add(predOps(Pred, PredReg)));
         NewInsts.push_back(BuildMI(MF, DL, TII->get(ARM::t2STRT))

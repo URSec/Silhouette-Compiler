@@ -1,4 +1,4 @@
-# The LLVM-based Silhouette Compiler
+# The LLVM-Based Silhouette Compiler
 
 This repository contains the source code of the LLVM-based Silhouette compiler.
 
@@ -6,9 +6,9 @@ This repository contains the source code of the LLVM-based Silhouette compiler.
 Compiling the Silhouette compiler is exactly the same as compiling a
 standard LLVM compiler. Therefore you can compile it in whatever way you
 are used to compiling the LLVM compiler infrastructure.
-If you are not familiar with compiling LLVM, you can use this
-[script](https://github.com/URSec/Silhouette-Misc/blob/master/scripts/build.llvm.sh)
-to generate the Makefiles to compile the compiler.
+If you are not familiar with compiling LLVM, please refer to [this
+script](https://github.com/URSec/Silhouette-Evaluation/blob/master/build/build.llvm.sh)
+to see how we built the compiler.
 
 ## How to Use Silhouette
 To enable Silhouette transformations when compiling a C program, add the

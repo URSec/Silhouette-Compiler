@@ -295,6 +295,10 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
            << MF.getName() << "\n";
   }
 
+  // Find out all pushes that write LR to the stack and all pops that read a
+  // return address from the stack to LR or PC
+  std::vector<std::pair<MachineInstr *, MachineOperand *> > Pushes;
+  std::vector<std::pair<MachineInstr *, MachineOperand *> > Pops;
   for (MachineBasicBlock & MBB : MF) {
     for (MachineInstr & MI : MBB) {
       switch (MI.getOpcode()) {
@@ -310,7 +314,7 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
         if (MI.getFlag(MachineInstr::FrameSetup)) {
           for (MachineOperand & MO : MI.operands()) {
             if (MO.isReg() && MO.getReg() == ARM::LR) {
-              setupShadowStack(MI);
+              Pushes.push_back(std::make_pair(&MI, &MO));
               break;
             }
           }
@@ -334,8 +338,7 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
           if (MO.isReg()) {
             if ((MO.getReg() == ARM::LR && findTailJmp(MI) != nullptr) ||
                 MO.getReg() == ARM::PC) {
-              popFromShadowStack(MI, MO);
-              // Bail out as POP cannot write to both LR and PC
+              Pops.push_back(std::make_pair(&MI, &MO));
               break;
             }
           }
@@ -346,6 +349,14 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
         break;
       }
     }
+  }
+
+  // Instrument each push and pop
+  for (auto & MIMO : Pushes) {
+    setupShadowStack(*MIMO.first);
+  }
+  for (auto & MIMO : Pops) {
+    popFromShadowStack(*MIMO.first, *MIMO.second);
   }
 
   return true;

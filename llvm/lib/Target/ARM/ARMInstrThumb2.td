@@ -1402,6 +1402,48 @@ def t2LEApcrelJT : t2PseudoInst<(outs rGPR:$Rd),
 let canFoldAsLoad = 1, isReMaterializable = 1  in
 defm t2LDR   : T2I_ld<0, 0b10, "ldr", IIC_iLoad_i, IIC_iLoad_si, GPR, load>;
 
+let isReturn = 1, isTerminator = 1, isBarrier = 1, mayLoad = 1,
+    isCodeGenOnly = 1 in {
+  def t2LDRi12_RET : T2Ii12<(outs GPR:$Rt), (ins t2addrmode_imm12:$addr),
+                            IIC_iLoad_i, "ldr", ".w\t$Rt, $addr", []>,
+                     Sched<[WriteLd]> {
+    bits<4> Rt;
+    bits<17> addr;
+    let Inst{31-25} = 0b1111100;
+    let Inst{24} = 0;
+    let Inst{23} = 1;
+    let Inst{22-21} = 0b10;
+    let Inst{20} = 1; // load
+    let Inst{19-16} = addr{16-13}; // Rn
+    let Inst{15-12} = Rt;
+    let Inst{11-0}  = addr{11-0};  // imm
+
+    let DecoderMethod = "DecodeT2LoadImm12";
+  }
+
+  def t2LDRs_RET : T2Iso <(outs GPR:$Rt), (ins t2addrmode_so_reg:$addr),
+                          IIC_iLoad_si, "ldr", ".w\t$Rt, $addr", []>,
+                   Sched<[WriteLd]> {
+    let Inst{31-27} = 0b11111;
+    let Inst{26-25} = 0b00;
+    let Inst{24} = 0;
+    let Inst{23} = 0;
+    let Inst{22-21} = 0b10;
+    let Inst{20} = 1; // load
+    let Inst{11-6} = 0b000000;
+
+    bits<4> Rt;
+    let Inst{15-12} = Rt;
+
+    bits<10> addr;
+    let Inst{19-16} = addr{9-6}; // Rn
+    let Inst{3-0}   = addr{5-2}; // Rm
+    let Inst{5-4}   = addr{1-0}; // imm
+
+    let DecoderMethod = "DecodeT2LoadShift";
+  }
+}
+
 // Loads with zero extension
 defm t2LDRH  : T2I_ld<0, 0b01, "ldrh", IIC_iLoad_bh_i, IIC_iLoad_bh_si,
                       GPRnopc, zextloadi16>;

@@ -201,7 +201,9 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
 
   if (offset >= 0 && offset <= 4092) {
     // Single-instruction shortcut
-    NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2LDRi12), PCLR.getReg())
+    NewMIs.push_back(BuildMI(MF, DL, TII->get(PCLR.getReg() == ARM::PC ?
+                                              ARM::t2LDRi12_RET : ARM::t2LDRi12),
+                             PCLR.getReg())
                      .addReg(ARM::SP)
                      .addImm(offset)
                      .add(predOps(Pred, PredReg))
@@ -231,7 +233,9 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
     }
 
     // Generate an LDR from the shadow stack to PC/LR
-    NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2LDRs), PCLR.getReg())
+    NewMIs.push_back(BuildMI(MF, DL, TII->get(PCLR.getReg() == ARM::PC ?
+                                              ARM::t2LDRs_RET : ARM::t2LDRs),
+                             PCLR.getReg())
                      .addReg(ARM::SP)
                      .addReg(ARM::R12)
                      .addImm(0)

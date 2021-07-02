@@ -250,16 +250,59 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
   switch (MI.getOpcode()) {
   case ARM::t2LDMIA_RET:
     MI.setDesc(TII->get(ARM::t2LDMIA_UPD));
+    // Copy implicit operands from the old POP to the new return
+    NewMIs.back()->copyImplicitOps(MF, MI);
+    for (unsigned i = MI.getNumOperands() - 1, e = MI.getNumExplicitOperands();
+         i >= e; --i) {
+      MI.RemoveOperand(i);
+    }
+    LLVM_FALLTHROUGH;
+  case ARM::t2LDMIA_UPD:
+    // LDMIA_UPD should load at least two registers; if it happens to be two,
+    // we replace it with a LDR_POST
+    assert(MI.getNumExplicitOperands() >= 6 && "Buggy LDMIA_UPD!");
+    if (MI.getNumExplicitOperands() > 6) {
+      MI.RemoveOperand(MI.getOperandNo(&PCLR));
+    } else {
+      unsigned Idx = MI.getOperandNo(&PCLR);
+      Idx = Idx == 4 ? 5 : 4; // Index of the other register than PC/LR
+      insertInstAfter(MI, BuildMI(MF, DL, TII->get(ARM::t2LDR_POST),
+                                  MI.getOperand(Idx).getReg())
+                          .addReg(ARM::SP, RegState::Define)
+                          .addReg(ARM::SP)
+                          .addImm(4)
+                          .add(predOps(Pred, PredReg))
+                          .setMIFlags(MI.getFlags()));
+      removeInst(MI);
+    }
     break;
 
   case ARM::tPOP_RET:
     MI.setDesc(TII->get(ARM::tPOP));
+    // Copy implicit operands from the old POP to the new return
+    NewMIs.back()->copyImplicitOps(MF, MI);
+    for (unsigned i = MI.getNumOperands() - 1, e = MI.getNumExplicitOperands();
+         i >= e; --i) {
+      MI.RemoveOperand(i);
+    }
+    LLVM_FALLTHROUGH;
+  case ARM::tPOP:
+    // POP should load at least one register; if it happens to be one, we just
+    // remove it
+    assert(MI.getNumExplicitOperands() >= 3 && "Buggy POP!");
+    if (MI.getNumExplicitOperands() > 3) {
+      MI.RemoveOperand(MI.getOperandNo(&PCLR));
+    } else {
+      removeInst(MI);
+    }
     break;
 
+  // ARM::t2LDR_POST
   default:
+    // LDR_POST only loads one register, so we just remove it
+    removeInst(MI);
     break;
   }
-  MI.RemoveOperand(MI.getOperandNo(&PCLR));
 }
 
 //
@@ -326,10 +369,11 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
         break;
 
       // Frame destroy instructions in function epilogue
+      case ARM::t2LDR_POST:
       case ARM::t2LDMIA_UPD:
       case ARM::t2LDMIA_RET:
         // LDMIA_UPD writing to SP! is treated same as POP
-        if (MI.getOperand(0).getReg() != ARM::SP) {
+        if (MI.getOperand(1).getReg() != ARM::SP) {
           break;
         }
         LLVM_FALLTHROUGH;

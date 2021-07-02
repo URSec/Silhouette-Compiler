@@ -64,7 +64,7 @@ ARMSilhouetteSTR2STRT::getPassName() const {
 //   Insts - A reference to a vector that contains new instructions.
 //
 static void
-backupRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
+backupRegisters(MachineInstr & MI, Register Reg1, Register Reg2,
                 std::vector<MachineInstr *> & Insts) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -130,7 +130,7 @@ backupRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
 //   Insts - A reference to a vector that contains new instructions.
 //
 static void
-restoreRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
+restoreRegisters(MachineInstr & MI, Register Reg1, Register Reg2,
                  std::vector<MachineInstr *> & Insts) {
   assert(((Reg1 >= ARM::R0 && Reg1 < ARM::R8) || Reg1 == ARM::NoRegister) &&
          "Cannot restore a hi register using T1 POP!");
@@ -179,10 +179,10 @@ restoreRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
 //              store.
 //
 static void
-handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
+handleSPWithUncommonImm(MachineInstr & MI, Register SrcReg, int64_t Imm,
                         unsigned strOpc, std::vector<MachineInstr *> & Insts,
-                        ArrayRef<unsigned> FreeRegs,
-                        unsigned SrcReg2 = ARM::NoRegister) {
+                        ArrayRef<Register> FreeRegs,
+                        Register SrcReg2 = ARM::NoRegister) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -190,9 +190,9 @@ handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
   // First try to find a free register
-  unsigned ScratchReg = ARM::NoRegister;
+  Register ScratchReg = ARM::NoRegister;
   bool needSpill = true;
-  for (unsigned Reg : FreeRegs) {
+  for (Register Reg : FreeRegs) {
     if (Reg != SrcReg && Reg != SrcReg2) {
       ScratchReg = Reg;
       needSpill = false;
@@ -204,8 +204,12 @@ handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
     errs() << "[SP] Unable to find a free register in " << MF.getName()
            << " for SP in " << MI;
     // Find a register to spill
-    ScratchReg = ARM::R4;
-    while (ScratchReg == SrcReg || ScratchReg == SrcReg2) ScratchReg++;
+    for (Register Reg : { ARM::R4, ARM::R5, ARM::R6, ARM::R7 }) {
+      if (Reg != SrcReg && Reg != SrcReg2) {
+        ScratchReg = Reg;
+        break;
+      }
+    }
     backupRegisters(MI, ScratchReg, ARM::NoRegister, Insts);
     Imm += 4; // Compensate for SP decrement
   }
@@ -257,10 +261,10 @@ handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
 //   FreeRegs  - A reference to an array that contains free registers before MI.
 //
 static void
-handleSPWithOffsetReg(MachineInstr & MI, unsigned SrcReg, unsigned OffsetReg,
+handleSPWithOffsetReg(MachineInstr & MI, Register SrcReg, Register OffsetReg,
                       unsigned ShiftImm, unsigned strOpc,
                       std::vector<MachineInstr *> & Insts,
-                      ArrayRef<unsigned> FreeRegs) {
+                      ArrayRef<Register> FreeRegs) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -268,9 +272,9 @@ handleSPWithOffsetReg(MachineInstr & MI, unsigned SrcReg, unsigned OffsetReg,
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
   // First try to find a free register
-  unsigned ScratchReg = ARM::NoRegister;
+  Register ScratchReg = ARM::NoRegister;
   bool needSpill = true;
-  for (unsigned Reg : FreeRegs) {
+  for (Register Reg : FreeRegs) {
     if (Reg != SrcReg && Reg != OffsetReg) {
       ScratchReg = Reg;
       needSpill = false;
@@ -282,8 +286,12 @@ handleSPWithOffsetReg(MachineInstr & MI, unsigned SrcReg, unsigned OffsetReg,
     errs() << "[SP] Unable to find a free register in " << MF.getName()
            << " for SP in " << MI;
     // Save a scratch register onto the stack.
-    ScratchReg = ARM::R0;
-    while (ScratchReg == SrcReg || ScratchReg == OffsetReg) ScratchReg++;
+    for (Register Reg : { ARM::R4, ARM::R5, ARM::R6, ARM::R7 }) {
+      if (Reg != SrcReg && Reg != OffsetReg) {
+        ScratchReg = Reg;
+        break;
+      }
+    }
     backupRegisters(MI, ScratchReg, ARM::NoRegister, Insts);
   }
 
@@ -452,12 +460,12 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
     unsigned PredReg;
     ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
-    unsigned BaseReg, OffsetReg;
-    unsigned SrcReg, SrcReg2;
-    unsigned ScratchReg, ScratchReg2;
+    Register BaseReg, OffsetReg;
+    Register SrcReg, SrcReg2;
+    Register ScratchReg, ScratchReg2;
     int64_t Imm, Imm2;
-    std::vector<unsigned> RegList;
-    std::vector<unsigned> FreeRegs;
+    std::vector<Register> RegList;
+    std::vector<Register> FreeRegs;
 
     std::vector<MachineInstr *> NewInsts;
     switch (MI.getOpcode()) {

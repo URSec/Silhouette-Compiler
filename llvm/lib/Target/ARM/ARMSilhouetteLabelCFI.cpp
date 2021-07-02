@@ -56,7 +56,7 @@ ARMSilhouetteLabelCFI::getPassName() const {
 //   Reg1 - The register to spill.
 //
 static void
-BackupRegister(MachineInstr & MI, unsigned Reg) {
+BackupRegister(MachineInstr & MI, Register Reg) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
 
@@ -95,7 +95,7 @@ BackupRegister(MachineInstr & MI, unsigned Reg) {
 //   Reg - The register to restore.
 //
 static void
-RestoreRegister(MachineInstr & MI, unsigned Reg) {
+RestoreRegister(MachineInstr & MI, Register Reg) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
 
@@ -156,7 +156,7 @@ ARMSilhouetteLabelCFI::insertCFILabelForJump(MachineBasicBlock & MBB) {
 //   Label - The correct label to check.
 //
 void
-ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, unsigned Reg,
+ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
                                       uint16_t Label) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
@@ -165,8 +165,8 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, unsigned Reg,
   // Try to find a free register first.  If we are unlucky, spill and (later)
   // restore R4.
   //
-  unsigned ScratchReg;
-  std::vector<unsigned> FreeRegs = findFreeRegisters(MI);
+  Register ScratchReg;
+  std::vector<Register> FreeRegs = findFreeRegisters(MI);
   if (!FreeRegs.empty()) {
     ScratchReg = FreeRegs[0];
   } else {
@@ -241,7 +241,7 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, unsigned Reg,
 //   Label - The correct label to check.
 //
 void
-ARMSilhouetteLabelCFI::insertCFICheckForCall(MachineInstr & MI, unsigned Reg) {
+ARMSilhouetteLabelCFI::insertCFICheckForCall(MachineInstr & MI, Register Reg) {
   insertCFICheck(MI, Reg, CFI_LABEL_CALL);
 }
 
@@ -258,7 +258,7 @@ ARMSilhouetteLabelCFI::insertCFICheckForCall(MachineInstr & MI, unsigned Reg) {
 //   Label - The correct label to check.
 //
 void
-ARMSilhouetteLabelCFI::insertCFICheckForJump(MachineInstr & MI, unsigned Reg) {
+ARMSilhouetteLabelCFI::insertCFICheckForJump(MachineInstr & MI, Register Reg) {
   insertCFICheck(MI, Reg, CFI_LABEL_JMP);
 }
 

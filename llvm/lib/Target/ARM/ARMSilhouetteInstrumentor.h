@@ -71,7 +71,7 @@ namespace llvm {
   //   Insts - A reference to a vector that contains new instructions.
   //
   static inline void
-  addImmediateToRegister(MachineInstr & MI, unsigned Reg, int64_t Imm,
+  addImmediateToRegister(MachineInstr & MI, Register Reg, int64_t Imm,
                          std::vector<MachineInstr *> & Insts) {
     assert((Imm > -4096 && Imm < 4096) && "Immediate too large!");
     assert((Reg != ARM::SP || Imm % 4 == 0) &&
@@ -110,7 +110,7 @@ namespace llvm {
   //   Insts - A reference to a vector that contains new instructions.
   //
   static inline void
-  subtractImmediateFromRegister(MachineInstr & MI, unsigned Reg, int64_t Imm,
+  subtractImmediateFromRegister(MachineInstr & MI, Register Reg, int64_t Imm,
                                 std::vector<MachineInstr *> & Insts) {
     addImmediateToRegister(MI, Reg, -Imm, Insts);
   }
@@ -133,7 +133,7 @@ namespace llvm {
   // Return value:
   //   A vector of free registers (might be empty, if none is found).
   //
-  static inline std::vector<unsigned>
+  static inline std::vector<Register>
   findFreeRegisters(const MachineInstr & MI, bool Thumb = false) {
     const MachineFunction & MF = *MI.getMF();
     const MachineBasicBlock & MBB = *MI.getParent();
@@ -159,14 +159,14 @@ namespace llvm {
     const auto HiGPRs = {
       ARM::R8, ARM::R9, ARM::R10, ARM::R11, ARM::R12, ARM::LR,
     };
-    std::vector<unsigned> FreeRegs;
-    for (unsigned Reg : LoGPRs) {
+    std::vector<Register> FreeRegs;
+    for (Register Reg : LoGPRs) {
       if (!MRI.isReserved(Reg) && !UsedRegs.contains(Reg)) {
         FreeRegs.push_back(Reg);
       }
     }
     if (!Thumb) {
-      for (unsigned Reg : HiGPRs) {
+      for (Register Reg : HiGPRs) {
         if (!MRI.isReserved(Reg) && !UsedRegs.contains(Reg)) {
           FreeRegs.push_back(Reg);
         }

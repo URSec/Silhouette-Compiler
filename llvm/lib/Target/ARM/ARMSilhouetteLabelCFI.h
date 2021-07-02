@@ -41,9 +41,9 @@ namespace llvm {
   private:
     void insertCFILabelForCall(MachineFunction & MF);
     void insertCFILabelForJump(MachineBasicBlock & MBB);
-    void insertCFICheckForCall(MachineInstr & MI, unsigned Reg);
-    void insertCFICheckForJump(MachineInstr & MI, unsigned Reg);
-    void insertCFICheck(MachineInstr & MI, unsigned Reg, uint16_t Label);
+    void insertCFICheckForCall(MachineInstr & MI, Register Reg);
+    void insertCFICheckForJump(MachineInstr & MI, Register Reg);
+    void insertCFICheck(MachineInstr & MI, Register Reg, uint16_t Label);
   };
 
   FunctionPass * createARMSilhouetteLabelCFI(void);

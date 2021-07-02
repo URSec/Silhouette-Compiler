@@ -98,7 +98,7 @@ immediateStoreOpcode(unsigned opcode) {
 //   Insts - A reference to a deque that contains new instructions.
 //
 static void
-doBitmasking(MachineInstr & MI, unsigned Reg, std::vector<MachineInstr *> & Insts) {
+doBitmasking(MachineInstr & MI, Register Reg, std::vector<MachineInstr *> & Insts) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -141,11 +141,11 @@ doBitmasking(MachineInstr & MI, unsigned Reg, std::vector<MachineInstr *> & Inst
 // Return value:
 //   The new base register.
 //
-static unsigned
-handleSPUncommonImmediate(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
+static Register
+handleSPUncommonImmediate(MachineInstr & MI, Register SrcReg, int64_t Imm,
                           std::vector<MachineInstr *> & InstsBefore,
                           std::vector<MachineInstr *> & InstsAfter,
-                          unsigned SrcReg2 = ARM::NoRegister) {
+                          Register SrcReg2 = ARM::NoRegister) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -154,8 +154,13 @@ handleSPUncommonImmediate(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
 
   // Save a scratch register onto the stack.  Note that we are introducing a
   // new store here, so this store needs to be instrumented as well.
-  unsigned ScratchReg = ARM::R0;
-  while (ScratchReg == SrcReg || ScratchReg == SrcReg2) ScratchReg++;
+  Register ScratchReg = ARM::NoRegister;
+  for (Register Reg : { ARM::R4, ARM::R5, ARM::R6, ARM::R7 }) {
+    if (Reg != SrcReg && Reg != SrcReg2) {
+      ScratchReg = Reg;
+      break;
+    }
+  }
   doBitmasking(MI, ARM::SP, InstsBefore);
   InstsBefore.push_back(BuildMI(MF, DL, TII->get(ARM::tPUSH))
                         .add(predOps(Pred, PredReg))

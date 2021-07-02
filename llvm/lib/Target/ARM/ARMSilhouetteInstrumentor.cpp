@@ -131,8 +131,7 @@ ARMSilhouetteInstrumentor::findIT(const MachineInstr & MI, unsigned & distance) 
 void
 ARMSilhouetteInstrumentor::insertInstBefore(MachineInstr & MI,
                                             MachineInstr * Inst) {
-  std::deque<MachineInstr *> Insts { Inst };
-  insertInstsBefore(MI, Insts);
+  insertInstsBefore(MI, { Inst });
 }
 
 //
@@ -151,8 +150,7 @@ ARMSilhouetteInstrumentor::insertInstBefore(MachineInstr & MI,
 void
 ARMSilhouetteInstrumentor::insertInstAfter(MachineInstr & MI,
                                            MachineInstr * Inst) {
-  std::deque<MachineInstr *> Insts { Inst };
-  insertInstsAfter(MI, Insts);
+  insertInstsAfter(MI, { Inst });
 }
 
 //
@@ -171,7 +169,7 @@ ARMSilhouetteInstrumentor::insertInstAfter(MachineInstr & MI,
 //
 void
 ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
-                                             std::deque<MachineInstr *> & Insts) {
+                                             ArrayRef<MachineInstr *> Insts) {
   MachineFunction & MF = *MI.getMF();
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -249,7 +247,7 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
 //
 void
 ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
-                                            std::deque<MachineInstr *> & Insts) {
+                                            ArrayRef<MachineInstr *> Insts) {
   MachineFunction & MF = *MI.getMF();
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();

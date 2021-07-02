@@ -26,8 +26,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FileSystem.h"
 
-#include <deque>
-
 using namespace llvm;
 
 extern bool SilhouetteInvert;
@@ -104,7 +102,7 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
-  std::deque<MachineInstr *> NewMIs;
+  std::vector<MachineInstr *> NewMIs;
 
   if (offset >= 0 && offset <= 4092 && !SilhouetteInvert) {
     // Single-instruction shortcut
@@ -192,7 +190,7 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
-  std::deque<MachineInstr *> NewMIs;
+  std::vector<MachineInstr *> NewMIs;
 
   // Adjust SP to skip PC/LR on the stack
   NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tADDspi), ARM::SP)

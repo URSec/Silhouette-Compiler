@@ -29,8 +29,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FileSystem.h"
 
-#include <deque>
-
 using namespace llvm;
 
 extern SilhouetteSFIOption SilhouetteSFI;
@@ -53,7 +51,7 @@ ARMSilhouetteSTR2STRT::getPassName() const {
 //
 // Description:
 //   This function backs up at most 2 core registers onto the stack and puts
-//   the new instruction(s) at the end of a deque.  Either register or both
+//   the new instruction(s) at the end of a vector.  Either register or both
 //   (which does't quite make sense, though) can be left out by passing
 //   ARM::NoRegister.  There is no ordering requirement between the two
 //   registers.
@@ -63,11 +61,11 @@ ARMSilhouetteSTR2STRT::getPassName() const {
 //           instructions.
 //   Reg1  - The first register to back up.
 //   Reg2  - The second register to back up.
-//   Insts - A reference to a deque that contains new instructions.
+//   Insts - A reference to a vector that contains new instructions.
 //
 static void
 backupRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
-                std::deque<MachineInstr *> & Insts) {
+                std::vector<MachineInstr *> & Insts) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -119,7 +117,7 @@ backupRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
 //
 // Description:
 //   This function restores at most 2 core registers from the stack and puts
-//   the new instruction(s) at the end of a deque.  Either register or both
+//   the new instruction(s) at the end of a vector.  Either register or both
 //   (which does't quite make sense, though) can be left out by passing
 //   ARM::NoRegister.  The two registers should be lo registers (R0 - R7), and
 //   the first one should be stricly smaller than the second one.
@@ -129,11 +127,11 @@ backupRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
 //           instructions.
 //   Reg1  - The first register to restore.
 //   Reg2  - The second register to restore.
-//   Insts - A reference to a deque that contains new instructions.
+//   Insts - A reference to a vector that contains new instructions.
 //
 static void
 restoreRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
-                 std::deque<MachineInstr *> & Insts) {
+                 std::vector<MachineInstr *> & Insts) {
   assert(((Reg1 >= ARM::R0 && Reg1 < ARM::R8) || Reg1 == ARM::NoRegister) &&
          "Cannot restore a hi register using T1 POP!");
   assert(((Reg2 >= ARM::R0 && Reg2 < ARM::R8) || Reg2 == ARM::NoRegister) &&
@@ -175,15 +173,15 @@ restoreRegisters(MachineInstr & MI, unsigned Reg1, unsigned Reg2,
 //   SrcReg   - The source register of the store.
 //   Imm      - The immediate offset of the store.
 //   strOpc   - The opcode of the new unprivileged store.
-//   Insts    - A reference to a deque that contains new instructions.
-//   FreeRegs - A reference to a deque that contains free registers before MI.
+//   Insts    - A reference to a vector that contains new instructions.
+//   FreeRegs - A reference to an array that contains free registers before MI.
 //   SrcReg2  - The second register of the store in case this is a double word
 //              store.
 //
 static void
 handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
-                        unsigned strOpc, std::deque<MachineInstr *> & Insts,
-                        std::deque<unsigned> & FreeRegs,
+                        unsigned strOpc, std::vector<MachineInstr *> & Insts,
+                        ArrayRef<unsigned> FreeRegs,
                         unsigned SrcReg2 = ARM::NoRegister) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -255,14 +253,14 @@ handleSPWithUncommonImm(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
 //   OffserReg - The offset register of the store.
 //   ShiftImm  - The left shift immediate of the store.
 //   strOpc    - The opcode of the new unprivileged store.
-//   Insts     - A reference to a deque that contains new instructions.
-//   FreeRegs  - A reference to a deque that contains free registers before MI.
+//   Insts     - A reference to a vector that contains new instructions.
+//   FreeRegs  - A reference to an array that contains free registers before MI.
 //
 static void
 handleSPWithOffsetReg(MachineInstr & MI, unsigned SrcReg, unsigned OffsetReg,
                       unsigned ShiftImm, unsigned strOpc,
-                      std::deque<MachineInstr *> & Insts,
-                      std::deque<unsigned> & FreeRegs) {
+                      std::vector<MachineInstr *> & Insts,
+                      ArrayRef<unsigned> FreeRegs) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -357,7 +355,7 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
   // Iterate over all machine instructions to find stores
-  std::deque<MachineInstr *> Stores;
+  std::vector<MachineInstr *> Stores;
   for (MachineBasicBlock & MBB : MF) {
     for (MachineInstr & MI : MBB) {
       if (!MI.mayStore() || MI.getFlag(MachineInstr::ShadowStack)) {
@@ -458,10 +456,10 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
     unsigned SrcReg, SrcReg2;
     unsigned ScratchReg, ScratchReg2;
     int64_t Imm, Imm2;
-    std::deque<unsigned> RegList;
-    std::deque<unsigned> FreeRegs;
+    std::vector<unsigned> RegList;
+    std::vector<unsigned> FreeRegs;
 
-    std::deque<MachineInstr *> NewInsts;
+    std::vector<MachineInstr *> NewInsts;
     switch (MI.getOpcode()) {
     //================================================================
     // Store word immediate.

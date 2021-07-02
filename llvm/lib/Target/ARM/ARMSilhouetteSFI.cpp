@@ -98,7 +98,7 @@ immediateStoreOpcode(unsigned opcode) {
 //   Insts - A reference to a deque that contains new instructions.
 //
 static void
-doBitmasking(MachineInstr & MI, unsigned Reg, std::deque<MachineInstr *> & Insts) {
+doBitmasking(MachineInstr & MI, unsigned Reg, std::vector<MachineInstr *> & Insts) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
@@ -143,8 +143,8 @@ doBitmasking(MachineInstr & MI, unsigned Reg, std::deque<MachineInstr *> & Insts
 //
 static unsigned
 handleSPUncommonImmediate(MachineInstr & MI, unsigned SrcReg, int64_t Imm,
-                          std::deque<MachineInstr *> & InstsBefore,
-                          std::deque<MachineInstr *> & InstsAfter,
+                          std::vector<MachineInstr *> & InstsBefore,
+                          std::vector<MachineInstr *> & InstsAfter,
                           unsigned SrcReg2 = ARM::NoRegister) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -212,7 +212,7 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
   // Iterate over all machine instructions to find stores
-  std::deque<MachineInstr *> Stores;
+  std::vector<MachineInstr *> Stores;
   for (MachineBasicBlock & MBB : MF) {
     for (MachineInstr & MI : MBB) {
       if (!MI.mayStore() || MI.getFlag(MachineInstr::ShadowStack)) {
@@ -314,8 +314,8 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
     unsigned BaseReg, OffsetReg;
     int64_t Imm;
 
-    std::deque<MachineInstr *> InstsBefore;
-    std::deque<MachineInstr *> InstsAfter;
+    std::vector<MachineInstr *> InstsBefore;
+    std::vector<MachineInstr *> InstsAfter;
     switch (MI.getOpcode()) {
     // A7.7.158 Encoding T1: STR<c> <Rt>,[<Rn>{,#<imm5>}]
     case ARM::tSTRi:

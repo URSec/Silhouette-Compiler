@@ -166,7 +166,7 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, unsigned Reg,
   // restore R4.
   //
   unsigned ScratchReg;
-  std::deque<unsigned> FreeRegs = findFreeRegisters(MI);
+  std::vector<unsigned> FreeRegs = findFreeRegisters(MI);
   if (!FreeRegs.empty()) {
     ScratchReg = FreeRegs[0];
   } else {

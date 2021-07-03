@@ -66,8 +66,9 @@ ARMSilhouetteInstrumentor::getITBlockSize(const MachineInstr & IT) {
 //
 // Description:
 //   This method finds the IT instruction that forms an IT block containing a
-//   given instruction MI.  It also computes the distance (from 1 to 4) between
-//   the IT and MI.  If there is no such IT, a null pointer is returned.
+//   given instruction MI.  It also computes the distance (from 0 to 4, 0 means
+//   MI itself is IT) between the IT and MI.  If there is no such IT, a null
+//   pointer is returned.
 //
 // Inputs:
 //   MI       - A reference to an instruction from which to find IT.
@@ -78,13 +79,14 @@ ARMSilhouetteInstrumentor::getITBlockSize(const MachineInstr & IT) {
 //
 MachineInstr *
 ARMSilhouetteInstrumentor::findIT(MachineInstr & MI, unsigned & distance) {
-  assert(MI.getOpcode() != ARM::t2IT && "MI cannot be IT!");
-
   MachineInstr * Prev = &MI;
   unsigned dist = 0;
   while (Prev != nullptr && dist < 5 && Prev->getOpcode() != ARM::t2IT) {
+    // Only count non-meta instructions
+    if (!Prev->isMetaInstruction()) {
+      ++dist;
+    }
     Prev = Prev->getPrevNode();
-    ++dist;
   }
   if (Prev != nullptr && dist < 5 && Prev->getOpcode() == ARM::t2IT) {
     if (getITBlockSize(*Prev) >= dist) {
@@ -100,8 +102,9 @@ ARMSilhouetteInstrumentor::findIT(MachineInstr & MI, unsigned & distance) {
 //
 // Description:
 //   This method finds the IT instruction that forms an IT block containing a
-//   given instruction MI.  It also computes the distance (from 1 to 4) between
-//   the IT and MI.  If there is no such IT, a null pointer is returned.
+//   given instruction MI.  It also computes the distance (from 0 to 4, 0 means
+//   MI itself is IT) between the IT and MI.  If there is no such IT, a null
+//   pointer is returned.
 //
 // Inputs:
 //   MI       - A const reference to an instruction from which to find IT.
@@ -121,8 +124,7 @@ ARMSilhouetteInstrumentor::findIT(const MachineInstr & MI, unsigned & distance) 
 // Description:
 //   This method inserts an instruction Inst before a given instruction MI.  If
 //   MI is a predicated instruction within an IT block, then Inst will have the
-//   same predicate as MI and also end up in an IT block.  Note that MI cannot
-//   be an IT instruction itself.
+//   same predicate as MI and also end up in an IT block.
 //
 // Inputs:
 //   MI   - A reference to an instruction before which to insert Inst.
@@ -140,8 +142,7 @@ ARMSilhouetteInstrumentor::insertInstBefore(MachineInstr & MI,
 // Description:
 //   This method inserts an instruction Inst after a given instruction MI.  If
 //   MI is a predicated instruction within an IT block, then Inst will have the
-//   same predicate as MI and also end up in an IT block.  Note that MI cannot
-//   be an IT instruction itself.
+//   same predicate as MI and also end up in an IT block.
 //
 // Inputs:
 //   MI   - A reference to an instruction after which to insert Inst.
@@ -157,19 +158,20 @@ ARMSilhouetteInstrumentor::insertInstAfter(MachineInstr & MI,
 // Method: insertInstsBefore()
 //
 // Description:
-//   This method inserts a group of instructions contained in a deque before a
+//   This method inserts a group of instructions contained in an array before a
 //   given instruction MI.  If MI is a predicated instruction within an IT
 //   block, then the new instructions will have the same predicate as MI and
-//   also end up in one or more IT blocks.  Note that MI cannot be an IT
-//   instruction itself.
+//   also end up in one or more IT blocks.
 //
 // Inputs:
 //   MI    - A reference to an instruction before which to insert instructions.
-//   Insts - A reference to a deque containing the instructions.
+//   Insts - A reference to an array containing the instructions.
 //
 void
 ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
                                              ArrayRef<MachineInstr *> Insts) {
+  assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
+
   MachineFunction & MF = *MI.getMF();
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -184,7 +186,7 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
 
   // If MI is inside an IT block, we should make sure to cover all new
   // instructions with IT(s)
-  if (IT != nullptr) {
+  if (IT != nullptr && distance != 0) {
     unsigned ITBlockSize = getITBlockSize(*IT);
     unsigned Mask = IT->getOperand(1).getImm() & 0xf;
     ARMCC::CondCodes firstCond = (ARMCC::CondCodes)IT->getOperand(0).getImm();
@@ -194,24 +196,38 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
     // Find the range of instructions that are supposed to be in IT block(s)
     MachineBasicBlock::iterator firstMI(IT->getNextNode()); // Inclusive
     MachineBasicBlock::iterator lastMI(MI);                 // Non-inclusive
-    for (unsigned i = distance; i <= ITBlockSize; ++i) {
+    for (unsigned i = distance; i <= ITBlockSize; ) {
       ++lastMI;
+      // Skip meta instructions if we have not reached the end
+      if (i == ITBlockSize || !lastMI->isMetaInstruction()) {
+        ++i;
+      }
     }
 
-    // Track new instructions in DQMask
+    // Track new non-meta instructions in DQMask
     auto it = DQMask.begin();
     for (unsigned i = 0; i < distance - 1; ++i) {
       it++;
     }
-    DQMask.insert(it, Insts.size(), sameAsFirstCond);
+    size_t NumRealInsts = Insts.size();
+    for (MachineInstr * Inst : Insts) {
+      if (Inst->isMetaInstruction()) {
+        --NumRealInsts;
+      }
+    }
+    DQMask.insert(it, NumRealInsts, sameAsFirstCond);
 
-    // Insert ITs to cover instructions from [firstMI, lastMI)
+    // Insert ITs to cover instructions in [firstMI, lastMI)
     for (MachineBasicBlock::iterator i(firstMI); i != lastMI; ) {
       std::deque<bool> NewDQMask;
       MachineBasicBlock::iterator j(i);
-      for (unsigned k = 0; k < 4 && j != lastMI; ++j, ++k) {
+      for (unsigned k = 0; k < 4 && j != lastMI; ++j) {
+        if (j->isMetaInstruction()) {
+          continue;
+        }
         NewDQMask.push_back(DQMask.front());
         DQMask.pop_front();
+        ++k;
       }
       bool flip = false;
       if (!NewDQMask[0]) {
@@ -238,8 +254,7 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
 //   This method inserts a group of instructions contained in a deque after a
 //   given instruction MI.  If MI is a predicated instruction within an IT
 //   block, then the new instructions will have the same predicate as MI and
-//   also end up in one or more IT blocks.  Note that MI cannot be an IT
-//   instruction itself.
+//   also end up in one or more IT blocks.
 //
 // Inputs:
 //   MI    - A reference to an instruction after which to insert instructions.
@@ -248,6 +263,8 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
 void
 ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
                                             ArrayRef<MachineInstr *> Insts) {
+  assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
+
   MachineFunction & MF = *MI.getMF();
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -263,7 +280,7 @@ ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
 
   // If MI is inside an IT block, we should make sure to cover all new
   // instructions with IT(s)
-  if (IT != nullptr) {
+  if (IT != nullptr && distance != 0) {
     unsigned ITBlockSize = getITBlockSize(*IT);
     unsigned Mask = IT->getOperand(1).getImm() & 0xf;
     ARMCC::CondCodes firstCond = (ARMCC::CondCodes)IT->getOperand(0).getImm();
@@ -273,24 +290,38 @@ ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
     // Find the range of instructions that are supposed to be in IT block(s)
     MachineBasicBlock::iterator firstMI(IT->getNextNode()); // Inclusive
     MachineBasicBlock::iterator lastMI(Insts.back());       // Non-inclusive
-    for (unsigned i = distance; i <= ITBlockSize; ++i) {
+    for (unsigned i = distance; i <= ITBlockSize; ) {
       ++lastMI;
+      // Skip meta instructions if we have not reached the end
+      if (i == ITBlockSize || !lastMI->isMetaInstruction()) {
+        ++i;
+      }
     }
 
-    // Track new instructions in DQMask
+    // Track new non-meta instructions in DQMask
     auto it = DQMask.begin();
     for (unsigned i = 0; i <= distance - 1; ++i) {
       it++;
     }
-    DQMask.insert(it, Insts.size(), sameAsFirstCond);
+    size_t NumRealInsts = Insts.size();
+    for (MachineInstr * Inst : Insts) {
+      if (Inst->isMetaInstruction()) {
+        --NumRealInsts;
+      }
+    }
+    DQMask.insert(it, NumRealInsts, sameAsFirstCond);
 
-    // Insert ITs to cover instructions from [firstMI, lastMI)
+    // Insert ITs to cover instructions in [firstMI, lastMI)
     for (MachineBasicBlock::iterator i(firstMI); i != lastMI; ) {
       std::deque<bool> NewDQMask;
       MachineBasicBlock::iterator j(i);
-      for (unsigned k = 0; k < 4 && j != lastMI; ++j, ++k) {
+      for (unsigned k = 0; k < 4 && j != lastMI; ++j) {
+        if (j->isMetaInstruction()) {
+          continue;
+        }
         NewDQMask.push_back(DQMask.front());
         DQMask.pop_front();
+        ++k;
       }
       bool flip = false;
       if (!NewDQMask[0]) {
@@ -324,12 +355,16 @@ ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
 //
 void
 ARMSilhouetteInstrumentor::removeInst(MachineInstr & MI) {
+  assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
+
   unsigned distance;
   MachineInstr * IT = findIT(MI, distance);
 
   // If MI was inside an IT block, we should make sure to update/remove the IT
   // instruction
   if (IT != nullptr) {
+    assert(distance != 0 && "Cannot remove an IT instruction directly!");
+
     unsigned Mask = IT->getOperand(1).getImm() & 0xf;
     ARMCC::CondCodes firstCond = (ARMCC::CondCodes)IT->getOperand(0).getImm();
     std::deque<bool> DQMask = decodeITMask(Mask);
@@ -454,6 +489,8 @@ ARMSilhouetteInstrumentor::encodeITMask(std::deque<bool> DQMask) {
 std::vector<Register>
 ARMSilhouetteInstrumentor::findFreeRegistersBefore(const MachineInstr & MI,
                                                    bool Thumb) {
+  assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
+
   const MachineFunction & MF = *MI.getMF();
   const MachineBasicBlock & MBB = *MI.getParent();
   const MachineRegisterInfo & MRI = MF.getRegInfo();

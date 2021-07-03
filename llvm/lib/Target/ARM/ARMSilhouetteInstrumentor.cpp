@@ -558,3 +558,109 @@ ARMSilhouetteInstrumentor::findFreeRegistersBefore(const MachineInstr & MI,
 
   return FreeRegs;
 }
+
+//
+// Method: findFreeRegistersAfter()
+//
+// Description:
+//   This method computes the liveness of ARM core registers after a given
+//   instruction MI and returns a list of free core registers that can be
+//   used for instrumentation purposes.
+//
+// Inputs:
+//   MI    - A reference to the instruction after which to find free
+//           registers.
+//   Thumb - Whether we are looking for Thumb registers (low registers, i,e,,
+//           R0 -- R7) or ARM registers (both low and high registers, i.e.,
+//           R0 -- R12 and LR).
+//
+// Return value:
+//   A vector of free registers (might be empty, if none is found).
+//
+std::vector<Register>
+ARMSilhouetteInstrumentor::findFreeRegistersAfter(const MachineInstr & MI,
+                                                  bool Thumb) {
+  assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
+
+  unsigned distance;
+  const MachineInstr * IT = findIT(MI, distance);
+
+  unsigned PredReg;
+  ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+  const MachineFunction & MF = *MI.getMF();
+  const MachineBasicBlock & MBB = *MI.getParent();
+  const MachineRegisterInfo & MRI = MF.getRegInfo();
+  const TargetRegisterInfo * TRI = MF.getSubtarget().getRegisterInfo();
+  LivePhysRegs UsedRegs(*TRI);
+
+  // First add live-out registers of MBB; these registers are considered live
+  // at the end of MBB
+  UsedRegs.addLiveOuts(MBB);
+
+  // If there is a return, add registers used by the return as well; here the
+  // rationale is that, if MI is the return, MI will not be stepped over and
+  // therefore the (potentially live) registers used in MI would not be counted
+  MachineBasicBlock::const_iterator Terminator = MBB.getLastNonDebugInstr();
+  if (Terminator != MBB.end() && Terminator->isReturn()) {
+    UsedRegs.addUses(*Terminator);
+  }
+
+  // Then move backward step by step to compute live registers after MI
+  MachineBasicBlock::const_iterator MBBI(MI);
+  MachineBasicBlock::const_iterator I = MBB.end();
+  while (I != MBBI) {
+    unsigned distance2;
+    const MachineInstr * IT2 = findIT(*--I, distance2);
+    unsigned PredReg2;
+    ARMCC::CondCodes Pred2 = getInstrPredicate(*I, PredReg2);
+
+    if (IT2 != nullptr && IT == IT2) {
+      // Skip instructions in the same IT block but with a different predicate
+      if (Pred != Pred2) {
+        continue;
+      }
+
+      // A return in the same IT block with the same predicate can reset live
+      // registers to the callee-saved registers
+      if (I->isReturn()) {
+        UsedRegs.init(*TRI);
+        for (auto CSR = MRI.getCalleeSavedRegs(); CSR && *CSR; ++CSR) {
+          UsedRegs.addReg(*CSR);
+        }
+
+        // Add registers used by the return; if MI is the return, MI will not
+        // be stepped over and therefore the (potentially live) registers used
+        // in MI would not be counted
+        UsedRegs.addUses(*I);
+      }
+    }
+
+    if (I != MBBI) {
+      UsedRegs.stepBackward(*I);
+    }
+  }
+
+  // Now add registers that are neither reserved nor live to a free list
+  const auto LoGPRs = {
+    ARM::R0, ARM::R1, ARM::R2, ARM::R3, ARM::R4, ARM::R5, ARM::R6, ARM::R7,
+  };
+  const auto HiGPRs = {
+    ARM::R8, ARM::R9, ARM::R10, ARM::R11, ARM::R12, ARM::LR,
+  };
+  std::vector<Register> FreeRegs;
+  for (Register Reg : LoGPRs) {
+    if (!MRI.isReserved(Reg) && !UsedRegs.contains(Reg)) {
+      FreeRegs.push_back(Reg);
+    }
+  }
+  if (!Thumb) {
+    for (Register Reg : HiGPRs) {
+      if (!MRI.isReserved(Reg) && !UsedRegs.contains(Reg)) {
+        FreeRegs.push_back(Reg);
+      }
+    }
+  }
+
+  return FreeRegs;
+}

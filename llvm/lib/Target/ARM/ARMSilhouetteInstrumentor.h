@@ -133,6 +133,9 @@ namespace llvm {
     std::vector<Register> findFreeRegistersBefore(const MachineInstr & MI,
                                                   bool Thumb = false);
 
+    std::vector<Register> findFreeRegistersAfter(const MachineInstr & MI,
+                                                 bool Thumb = false);
+
   private:
     unsigned getITBlockSize(const MachineInstr & IT);
     MachineInstr * findIT(MachineInstr & MI, unsigned & distance);

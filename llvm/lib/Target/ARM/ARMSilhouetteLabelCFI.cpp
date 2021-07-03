@@ -91,7 +91,7 @@ BackupRegister(MachineInstr & MI, Register Reg) {
 //   (R0 -- R7) from the stack.
 //
 // Inputs:
-//   MI   - A reference to the instruction before which to insert instructions.
+//   MI  - A reference to the instruction before which to insert instructions.
 //   Reg - The register to restore.
 //
 static void

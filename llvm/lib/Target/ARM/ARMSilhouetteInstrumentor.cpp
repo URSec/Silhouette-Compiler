@@ -70,8 +70,10 @@ ARMSilhouetteInstrumentor::getITBlockSize(const MachineInstr & IT) {
 //   MI itself is IT) between the IT and MI.  If there is no such IT, a null
 //   pointer is returned.
 //
-// Inputs:
-//   MI       - A reference to an instruction from which to find IT.
+// Input:
+//   MI - A reference to an instruction from which to find IT.
+//
+// Output:
 //   distance - A reference to an unsigned to store the distance.
 //
 // Return value:
@@ -106,8 +108,10 @@ ARMSilhouetteInstrumentor::findIT(MachineInstr & MI, unsigned & distance) {
 //   MI itself is IT) between the IT and MI.  If there is no such IT, a null
 //   pointer is returned.
 //
-// Inputs:
-//   MI       - A const reference to an instruction from which to find IT.
+// Input:
+//   MI - A const reference to an instruction from which to find IT.
+//
+// Output:
 //   distance - A reference to an unsigned to store the distance.
 //
 // Return value:
@@ -251,14 +255,14 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
 // Method: insertInstsAfter()
 //
 // Description:
-//   This method inserts a group of instructions contained in a deque after a
+//   This method inserts a group of instructions contained in an array after a
 //   given instruction MI.  If MI is a predicated instruction within an IT
 //   block, then the new instructions will have the same predicate as MI and
 //   also end up in one or more IT blocks.
 //
 // Inputs:
 //   MI    - A reference to an instruction after which to insert instructions.
-//   Insts - A reference to a deque containing the instructions.
+//   Insts - A reference to an array containing the instructions.
 //
 void
 ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,

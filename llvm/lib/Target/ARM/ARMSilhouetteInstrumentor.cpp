@@ -491,6 +491,12 @@ ARMSilhouetteInstrumentor::findFreeRegistersBefore(const MachineInstr & MI,
                                                    bool Thumb) {
   assert(!MI.isMetaInstruction() && "Cannot instrument meta instruction!");
 
+  unsigned distance;
+  const MachineInstr * IT = findIT(MI, distance);
+
+  unsigned PredReg;
+  ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
   const MachineFunction & MF = *MI.getMF();
   const MachineBasicBlock & MBB = *MI.getParent();
   const MachineRegisterInfo & MRI = MF.getRegInfo();
@@ -505,7 +511,28 @@ ARMSilhouetteInstrumentor::findFreeRegistersBefore(const MachineInstr & MI,
   MachineBasicBlock::const_iterator MBBI(MI);
   MachineBasicBlock::const_iterator I = MBB.end();
   while (I != MBBI) {
-    UsedRegs.stepBackward(*--I);
+    unsigned distance2;
+    const MachineInstr * IT2 = findIT(*--I, distance2);
+    unsigned PredReg2;
+    ARMCC::CondCodes Pred2 = getInstrPredicate(*I, PredReg2);
+
+    if (IT2 != nullptr && IT == IT2) {
+      // Skip instructions in the same IT block but with a different predicate
+      if (Pred != Pred2) {
+        continue;
+      }
+
+      // A return in the same IT block with the same predicate can reset live
+      // registers to the callee-saved registers
+      if (I->isReturn()) {
+        UsedRegs.init(*TRI);
+        for (auto CSR = MRI.getCalleeSavedRegs(); CSR && *CSR; ++CSR) {
+          UsedRegs.addReg(*CSR);
+        }
+      }
+    }
+
+    UsedRegs.stepBackward(*I);
   }
 
   // Now add registers that are neither reserved nor live to a free list

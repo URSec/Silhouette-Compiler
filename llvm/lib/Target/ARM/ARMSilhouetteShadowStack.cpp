@@ -32,8 +32,6 @@ extern bool SilhouetteInvert;
 
 char ARMSilhouetteShadowStack::ID = 0;
 
-static DebugLoc DL;
-
 static cl::opt<int>
 ShadowStackOffset("arm-silhouette-shadowstack-offset",
                   cl::desc("Silhouette shadow stack offset"),
@@ -103,6 +101,7 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
   std::vector<MachineInstr *> NewMIs;
+  const DebugLoc & DL = MI.getDebugLoc();
 
   if (offset >= 0 && offset <= 4092 && !SilhouetteInvert) {
     // Single-instruction shortcut
@@ -191,6 +190,7 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
   std::vector<MachineInstr *> NewMIs;
+  const DebugLoc & DL = MI.getDebugLoc();
 
   // Adjust SP to skip PC/LR on the stack
   NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tADDspi), ARM::SP)

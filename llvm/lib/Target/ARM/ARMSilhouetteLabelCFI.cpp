@@ -31,8 +31,6 @@ using namespace llvm;
 extern bool SilhouetteInvert;
 extern bool SilhouetteStr2Strt;
 
-static DebugLoc DL;
-
 char ARMSilhouetteLabelCFI::ID = 0;
 
 ARMSilhouetteLabelCFI::ARMSilhouetteLabelCFI()
@@ -59,6 +57,8 @@ static void
 BackupRegister(MachineInstr & MI, Register Reg) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   if (SilhouetteInvert || !SilhouetteStr2Strt) {
     // Build a PUSH
@@ -99,6 +99,8 @@ RestoreRegister(MachineInstr & MI, Register Reg) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
 
+  const DebugLoc & DL = MI.getDebugLoc();
+
   // Generate a POP that pops out the register content from stack
   BuildMI(MBB, &MI, DL, TII->get(ARM::tPOP))
   .add(predOps(ARMCC::AL))
@@ -120,7 +122,7 @@ ARMSilhouetteLabelCFI::insertCFILabelForCall(MachineFunction & MF) {
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
   // Use "mov r0, r0" as our CFI label
-  BuildMI(MBB, MBB.begin(), DL, TII->get(ARM::tMOVr), ARM::R0)
+  BuildMI(MBB, MBB.begin(), DebugLoc(), TII->get(ARM::tMOVr), ARM::R0)
   .addReg(ARM::R0);
 }
 
@@ -138,7 +140,7 @@ ARMSilhouetteLabelCFI::insertCFILabelForJump(MachineBasicBlock & MBB) {
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
 
   // Use "mov r0, r0" as our CFI label
-  BuildMI(MBB, MBB.begin(), DL, TII->get(ARM::tMOVr), ARM::R0)
+  BuildMI(MBB, MBB.begin(), DebugLoc(), TII->get(ARM::tMOVr), ARM::R0)
   .addReg(ARM::R0);
 }
 
@@ -160,6 +162,8 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
                                       uint16_t Label) {
   MachineBasicBlock & MBB = *MI.getParent();
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   //
   // Try to find a free register first.  If we are unlucky, spill and (later)

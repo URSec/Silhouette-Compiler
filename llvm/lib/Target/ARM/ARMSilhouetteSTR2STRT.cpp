@@ -35,8 +35,6 @@ extern SilhouetteSFIOption SilhouetteSFI;
 
 char ARMSilhouetteSTR2STRT::ID = 0;
 
-static DebugLoc DL;
-
 ARMSilhouetteSTR2STRT::ARMSilhouetteSTR2STRT()
     : MachineFunctionPass(ID) {
 }
@@ -71,6 +69,8 @@ backupRegisters(MachineInstr & MI, Register Reg1, Register Reg2,
 
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   unsigned offset = 0;
   unsigned numRegs = 0;
@@ -146,6 +146,8 @@ restoreRegisters(MachineInstr & MI, Register Reg1, Register Reg2,
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
+  const DebugLoc & DL = MI.getDebugLoc();
+
   // Build a POP that pops out the register content from stack
   if (Reg1 != ARM::NoRegister || Reg2 != ARM::NoRegister) {
     MachineInstrBuilder MIB = BuildMI(MF, DL, TII->get(ARM::tPOP))
@@ -188,6 +190,8 @@ handleSPWithUncommonImm(MachineInstr & MI, Register SrcReg, int64_t Imm,
 
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   // First try to find a free register
   Register ScratchReg = ARM::NoRegister;
@@ -270,6 +274,8 @@ handleSPWithOffsetReg(MachineInstr & MI, Register SrcReg, Register OffsetReg,
 
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   // First try to find a free register
   Register ScratchReg = ARM::NoRegister;
@@ -459,6 +465,8 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
 
     unsigned PredReg;
     ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+    const DebugLoc & DL = MI.getDebugLoc();
 
     Register BaseReg, OffsetReg;
     Register SrcReg, SrcReg2;

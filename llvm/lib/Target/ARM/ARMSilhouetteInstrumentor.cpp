@@ -28,8 +28,6 @@
 
 using namespace llvm;
 
-static DebugLoc DL;
-
 //
 // Method: getITBlockSize()
 //
@@ -240,7 +238,7 @@ ARMSilhouetteInstrumentor::insertInstsBefore(MachineInstr & MI,
         }
         flip = true;
       }
-      BuildMI(MBB, i, DL, TII->get(ARM::t2IT))
+      BuildMI(MBB, i, IT->getDebugLoc(), TII->get(ARM::t2IT))
       .addImm(flip ? ARMCC::getOppositeCondition(firstCond) : firstCond)
       .addImm(encodeITMask(NewDQMask));
       i = j; // Update i here
@@ -334,7 +332,7 @@ ARMSilhouetteInstrumentor::insertInstsAfter(MachineInstr & MI,
         }
         flip = true;
       }
-      BuildMI(MBB, i, DL, TII->get(ARM::t2IT))
+      BuildMI(MBB, i, IT->getDebugLoc(), TII->get(ARM::t2IT))
       .addImm(flip ? ARMCC::getOppositeCondition(firstCond) : firstCond)
       .addImm(encodeITMask(NewDQMask));
       i = j; // Update i here

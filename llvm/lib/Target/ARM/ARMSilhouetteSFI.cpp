@@ -33,8 +33,6 @@ extern SilhouetteSFIOption SilhouetteSFI;
 
 char ARMSilhouetteSFI::ID = 0;
 
-static DebugLoc DL;
-
 ARMSilhouetteSFI::ARMSilhouetteSFI()
     : MachineFunctionPass(ID) {
 }
@@ -105,6 +103,8 @@ doBitmasking(MachineInstr & MI, Register Reg, std::vector<MachineInstr *> & Inst
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
 
+  const DebugLoc & DL = MI.getDebugLoc();
+
   Insts.push_back(BuildMI(MF, DL, TII->get(ARM::t2BICri), Reg)
                   .addReg(Reg)
                   .addImm(SFI_MASK)
@@ -151,6 +151,8 @@ handleSPUncommonImmediate(MachineInstr & MI, Register SrcReg, int64_t Imm,
 
   unsigned PredReg;
   ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+  const DebugLoc & DL = MI.getDebugLoc();
 
   // Save a scratch register onto the stack.  Note that we are introducing a
   // new store here, so this store needs to be instrumented as well.
@@ -315,6 +317,8 @@ ARMSilhouetteSFI::runOnMachineFunction(MachineFunction & MF) {
 
     unsigned PredReg;
     ARMCC::CondCodes Pred = getInstrPredicate(MI, PredReg);
+
+    const DebugLoc & DL = MI.getDebugLoc();
 
     unsigned BaseReg, OffsetReg;
     int64_t Imm;

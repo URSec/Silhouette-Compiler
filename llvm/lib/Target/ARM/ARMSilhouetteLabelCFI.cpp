@@ -161,7 +161,8 @@ void
 ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
                                       uint16_t Label) {
   MachineBasicBlock & MBB = *MI.getParent();
-  const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
+  MachineFunction & MF = *MI.getMF();
+  const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
 
   const DebugLoc & DL = MI.getDebugLoc();
 
@@ -174,7 +175,8 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
   if (!FreeRegs.empty()) {
     ScratchReg = FreeRegs[0];
   } else {
-    errs() << "[CFI] Unable to find a free register for " << MI;
+    errs() << "[CFI] Unable to find a free register in " << MF.getName()
+           << " for " << MI;
     ScratchReg = ARM::R4;
     BackupRegister(MI, ScratchReg);
   }

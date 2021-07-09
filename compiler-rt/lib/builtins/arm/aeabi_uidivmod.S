@@ -38,7 +38,13 @@ LOCAL_LABEL(case_denom_larger):
         movs    r0, #0
         JMP     (lr)
 #else // defined(USE_THUMB_1)
+#ifdef SILHOUETTE
+        SAVE_TO_SS(lr)
+        sub     sp, #4
+        strt    lr, [sp]
+#else
         push    { lr }
+#endif
         sub     sp, sp, #4
         mov     r2, sp
 #if defined(__MINGW32__)
@@ -49,7 +55,12 @@ LOCAL_LABEL(case_denom_larger):
         bl      SYMBOL_NAME(__udivmodsi4)
         ldr     r1, [sp]
         add     sp, sp, #4
+#ifdef SILHOUETTE
+        add     sp, #4
+        LOAD_FROM_SS(pc)
+#else
         pop     { pc }
+#endif
 #endif
 END_COMPILERRT_FUNCTION(__aeabi_uidivmod)
 

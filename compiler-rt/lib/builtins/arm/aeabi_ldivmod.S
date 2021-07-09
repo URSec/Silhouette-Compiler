@@ -22,10 +22,21 @@
         .syntax unified
         .p2align 2
 DEFINE_COMPILERRT_FUNCTION(__aeabi_ldivmod)
+#ifdef SILHOUETTE
+        SAVE_TO_SS(lr)
+        sub     sp, #8
+        strt    r6, [sp]
+        strt    lr, [sp, #4]
+#else
         push    {r6, lr}
+#endif
         sub     sp, sp, #16
         add     r6, sp, #8
+#ifdef SILHOUETTE
+        strt    r6, [sp]
+#else
         str     r6, [sp]
+#endif
 #if defined(__MINGW32__)
         movs    r6, r0
         movs    r0, r2
@@ -38,7 +49,13 @@ DEFINE_COMPILERRT_FUNCTION(__aeabi_ldivmod)
         ldr     r2, [sp, #8]
         ldr     r3, [sp, #12]
         add     sp, sp, #16
+#ifdef SILHOUETTE
+        pop     {r6}
+        add     sp, #4
+        LOAD_FROM_SS(pc)
+#else
         pop     {r6, pc}
+#endif
 END_COMPILERRT_FUNCTION(__aeabi_ldivmod)
 
 NO_EXEC_STACK_DIRECTIVE

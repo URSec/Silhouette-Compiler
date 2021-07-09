@@ -197,4 +197,8 @@
 #define END_COMPILERRT_FUNCTION(name)
 #endif
 
+#if defined(SILHOUETTE) && defined(__arm__) && defined(__thumb2__)
+#include "assembly-silhouette.h"
+#endif
+
 #endif // COMPILERRT_ASSEMBLY_H

@@ -36,7 +36,11 @@ DEFINE_COMPILERRT_FUNCTION(__divmodsi4)
 	mov 	r3, r0
 	sdiv	r0, r3, r1
 	mls 	r1, r0, r1, r3
+#ifdef SILHOUETTE
+	strt	r1, [r2]
+#else
 	str 	r1, [r2]
+#endif
 	bx  	lr
 LOCAL_LABEL(divzero):
 	mov     r0, #0

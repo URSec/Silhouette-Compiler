@@ -25,20 +25,35 @@
 #  define CONVERT_FCMP_ARGS_TO_SF2_ARGS
 #endif
 
+#ifdef SILHOUETTE
+#define PROLOGUE                                           \
+        SAVE_TO_SS(lr)                           SEPARATOR \
+        sub       sp, #8                         SEPARATOR \
+        strt      r4, [sp]                       SEPARATOR \
+        strt      lr, [sp, #4]
+#define EPILOGUE                                           \
+        pop       { r4 }                         SEPARATOR \
+        add       sp, #4                         SEPARATOR \
+        LOAD_FROM_SS(pc)
+#else
+#define PROLOGUE push {r4, lr}
+#define EPILOGUE pop {r4, pc}
+#endif
+
 #define DEFINE_AEABI_FCMP(cond)                            \
         .syntax unified                          SEPARATOR \
         .p2align 2                               SEPARATOR \
 DEFINE_COMPILERRT_FUNCTION(__aeabi_fcmp ## cond)           \
-        push      { r4, lr }                     SEPARATOR \
+        PROLOGUE                                 SEPARATOR \
         CONVERT_FCMP_ARGS_TO_SF2_ARGS            SEPARATOR \
         bl        SYMBOL_NAME(__ ## cond ## sf2) SEPARATOR \
         cmp       r0, #0                         SEPARATOR \
         b ## cond 1f                             SEPARATOR \
         movs      r0, #0                         SEPARATOR \
-        pop       { r4, pc }                     SEPARATOR \
+        EPILOGUE                                 SEPARATOR \
 1:                                               SEPARATOR \
         movs      r0, #1                         SEPARATOR \
-        pop       { r4, pc }                     SEPARATOR \
+        EPILOGUE                                 SEPARATOR \
 END_COMPILERRT_FUNCTION(__aeabi_fcmp ## cond)
 
 DEFINE_AEABI_FCMP(eq)

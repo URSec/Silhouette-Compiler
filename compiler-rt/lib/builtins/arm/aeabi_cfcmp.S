@@ -26,7 +26,17 @@
         .syntax unified
         .p2align 2
 DEFINE_COMPILERRT_FUNCTION(__aeabi_cfcmpeq)
+#ifdef SILHOUETTE
+        SAVE_TO_SS(lr)
+        sub sp, #20
+        strt r0, [sp]
+        strt r1, [sp, #4]
+        strt r2, [sp, #8]
+        strt r3, [sp, #12]
+        strt lr, [sp, #16]
+#else
         push {r0-r3, lr}
+#endif
         bl __aeabi_cfcmpeq_check_nan
         cmp r0, #1
 #if defined(USE_THUMB_1)
@@ -42,7 +52,13 @@ DEFINE_COMPILERRT_FUNCTION(__aeabi_cfcmpeq)
         lsls r0, r0, #31
         pop {r0-r3, pc}
 #else
+#ifdef SILHOUETTE
+        pop {r0-r3}
+        add sp, #4
+        LOAD_FROM_SS(lr)
+#else
         pop {r0-r3, lr}
+#endif
 
         // NaN has been ruled out, so __aeabi_cfcmple can't trap
         // Use "it ne" + unconditional branch to guarantee a supported relocation if
@@ -76,7 +92,17 @@ END_COMPILERRT_FUNCTION(__aeabi_cfcmpeq)
 DEFINE_COMPILERRT_FUNCTION(__aeabi_cfcmple)
         // Per the RTABI, this function must preserve r0-r11.
         // Save lr in the same instruction for compactness
+#ifdef SILHOUETTE
+        SAVE_TO_SS(lr)
+        sub sp, #20
+        strt r0, [sp]
+        strt r1, [sp, #4]
+        strt r2, [sp, #8]
+        strt r3, [sp, #12]
+        strt lr, [sp, #16]
+#else
         push {r0-r3, lr}
+#endif
 
         bl __aeabi_fcmplt
         cmp r0, #1
@@ -116,7 +142,12 @@ DEFINE_COMPILERRT_FUNCTION(__aeabi_cfcmple)
 1:
         msr APSR_nzcvq, ip
         pop {r0-r3}
+#ifdef SILHOUETTE
+        add sp, #4
+        LOAD_FROM_SS(pc)
+#else
         POP_PC()
+#endif
 #endif
 END_COMPILERRT_FUNCTION(__aeabi_cfcmple)
 

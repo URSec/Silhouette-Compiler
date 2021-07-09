@@ -31,7 +31,13 @@ DEFINE_COMPILERRT_FUNCTION(__aeabi_idivmod)
         subs    r1, r1, r2
         JMP     (r3)
 #else  // defined(USE_THUMB_1)
+#ifdef SILHOUETTE
+        SAVE_TO_SS(lr)
+        add     sp, #4
+        strt    lr, [sp]
+#else
         push    { lr }
+#endif
         sub     sp, sp, #4
         mov     r2, sp
 #if defined(__MINGW32__)
@@ -42,7 +48,12 @@ DEFINE_COMPILERRT_FUNCTION(__aeabi_idivmod)
         bl      SYMBOL_NAME(__divmodsi4)
         ldr     r1, [sp]
         add     sp, sp, #4
+#ifdef SILHOUETTE
+        add     sp, #4
+        LOAD_FROM_SS(pc)
+#else
         pop     { pc }
+#endif
 #endif //  defined(USE_THUMB_1)
 END_COMPILERRT_FUNCTION(__aeabi_idivmod)
 

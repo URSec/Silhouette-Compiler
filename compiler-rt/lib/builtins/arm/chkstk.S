@@ -22,7 +22,13 @@
 DEFINE_COMPILERRT_FUNCTION(__chkstk)
         lsl    r4,  r4,  #2
         mov    r12, sp
+#ifdef SILHOUETTE
+        sub    sp, #8
+        strt   r5, [sp]
+        strt   r6, [sp, #4]
+#else
         push   {r5, r6}
+#endif
         mov    r5,  r4
 1:
         sub    r12, r12, #PAGE_SIZE

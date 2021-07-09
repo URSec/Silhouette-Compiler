@@ -48,39 +48,6 @@ ARMSilhouetteShadowStack::getPassName() const {
 }
 
 //
-// Function: findTailJmp()
-//
-// Description:
-//   This function finds a TAILJMP instruction after a given instruction MI in
-//   the same basic block.
-//
-// Input:
-//   MI - A reference to the instruction after which to find TAILJMP.
-//
-// Return value:
-//   A pointer to TAILJMP if found, nullptr otherwise.
-//
-static MachineInstr *
-findTailJmp(MachineInstr & MI) {
-  MachineInstr * I = MI.getNextNode();
-  while (I != nullptr) {
-    switch (I->getOpcode()) {
-    case ARM::tTAILJMPr:
-    case ARM::tTAILJMPd:
-    case ARM::tTAILJMPdND:
-    case ARM::tBX_RET:  // This is also the case!
-      return I;
-
-    default:
-      I = I->getNextNode();
-      break;
-    }
-  }
-
-  return nullptr;
-}
-
-//
 // Method: setupShadowStack()
 //
 // Description:
@@ -379,13 +346,12 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
         LLVM_FALLTHROUGH;
       case ARM::tPOP:
       case ARM::tPOP_RET:
-        // Handle 2 cases:
-        // (1) POP writing to LR followed by TAILJMP.
-        // (2) POP writing to PC
-        for (MachineOperand & MO : MI.operands()) {
-          if (MO.isReg()) {
-            if ((MO.getReg() == ARM::LR && findTailJmp(MI) != nullptr) ||
-                MO.getReg() == ARM::PC) {
+        if (MI.getFlag(MachineInstr::FrameDestroy)) {
+          // Handle 2 cases:
+          // (1) POP writing to LR
+          // (2) POP writing to PC
+          for (MachineOperand & MO : MI.operands()) {
+            if (MO.isReg() && (MO.getReg() == ARM::LR || MO.getReg() == ARM::PC)) {
               Pops.push_back(std::make_pair(&MI, &MO));
               break;
             }

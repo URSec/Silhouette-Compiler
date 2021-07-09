@@ -79,23 +79,35 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
                      .add(predOps(Pred, PredReg))
                      .setMIFlag(MachineInstr::ShadowStack));
   } else {
+    // Try to find a free register; if we couldn't find one, spill and use R4
+    std::vector<Register> FreeRegs = findFreeRegistersBefore(MI);
+    bool Spill = FreeRegs.empty();
+    Register ScratchReg = Spill ? ARM::R4 : FreeRegs[0];
+    if (Spill) {
+      errs() << "[SS] Unable to find a free register in " << MF.getName()
+             << " for " << MI;
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tPUSH))
+                       .add(predOps(Pred, PredReg))
+                       .addReg(ScratchReg));
+    }
+
     // First encode the shadow stack offset into the scratch register
     if (ARM_AM::getT2SOImmVal(offset) != -1) {
       // Use one MOV if the offset can be expressed in Thumb modified constant
-      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi), ARM::R12)
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi), ScratchReg)
                        .addImm(offset)
                        .add(predOps(Pred, PredReg))
                        .add(condCodeOp()) // No 'S' bit
                        .setMIFlag(MachineInstr::ShadowStack));
     } else {
       // Otherwise use MOV/MOVT to load lower/upper 16 bits of the offset
-      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi16), ARM::R12)
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi16), ScratchReg)
                        .addImm(offset & 0xffff)
                        .add(predOps(Pred, PredReg))
                        .setMIFlag(MachineInstr::ShadowStack));
       if ((offset >> 16) != 0) {
-        NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVTi16), ARM::R12)
-                         .addReg(ARM::R12)
+        NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVTi16), ScratchReg)
+                         .addReg(ScratchReg)
                          .addImm(offset >> 16)
                          .add(predOps(Pred, PredReg))
                          .setMIFlag(MachineInstr::ShadowStack));
@@ -105,15 +117,15 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
     // Store the return address onto the shadow stack
     if (SilhouetteInvert) {
       // Add SP with the offset to the scratch register
-      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tADDrSP), ARM::R12)
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tADDrSP), ScratchReg)
                        .addReg(ARM::SP)
-                       .addReg(ARM::R12)
+                       .addReg(ScratchReg)
                        .add(predOps(Pred, PredReg))
                        .setMIFlag(MachineInstr::ShadowStack));
       // Generate an STRT to the shadow stack
       NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2STRT))
                        .addReg(ARM::LR)
-                       .addReg(ARM::R12)
+                       .addReg(ScratchReg)
                        .addImm(0)
                        .add(predOps(Pred, PredReg))
                        .setMIFlag(MachineInstr::ShadowStack));
@@ -122,10 +134,17 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
       NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2STRs))
                        .addReg(ARM::LR)
                        .addReg(ARM::SP)
-                       .addReg(ARM::R12)
+                       .addReg(ScratchReg)
                        .addImm(0)
                        .add(predOps(Pred, PredReg))
                        .setMIFlag(MachineInstr::ShadowStack));
+    }
+
+    // Restore the scratch register if we spilled it
+    if (Spill) {
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tPOP))
+                       .add(predOps(Pred, PredReg))
+                       .addReg(ScratchReg));
     }
   }
 
@@ -176,23 +195,54 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
                      .add(predOps(Pred, PredReg))
                      .setMIFlag(MachineInstr::ShadowStack));
   } else {
+    // Try to find a free register; if we couldn't find one, spill and use R4
+    std::vector<Register> FreeRegs = findFreeRegistersAfter(MI);
+    bool Spill = FreeRegs.empty();
+    Register ScratchReg = Spill ? ARM::R4 : FreeRegs[0];
+    if (Spill) {
+      errs() << "[SS] Unable to find a free register in " << MF.getName()
+             << " for " << MI;
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tPUSH))
+                       .add(predOps(Pred, PredReg))
+                       .addReg(ScratchReg));
+    }
+
+    // If we spilled the scratch register, change to use LR to hold the return
+    // address as we have to restore the scratch register before writing to PC;
+    // a BX_RET then needs to be inserted at the end
+    bool NeedReturn = Spill && PCLR.getReg() == ARM::PC;
+    if (NeedReturn) {
+      PCLR.setReg(ARM::LR);
+
+      // Mark LR as restored
+      MachineFrameInfo & MFI = MF.getFrameInfo();
+      if (MFI.isCalleeSavedInfoValid()) {
+        for (CalleeSavedInfo & CSI : MFI.getCalleeSavedInfo()) {
+          if (CSI.getReg() == ARM::LR) {
+            CSI.setRestored(true);
+            break;
+          }
+        }
+      }
+    }
+
     // First encode the shadow stack offset into the scratch register
     if (ARM_AM::getT2SOImmVal(offset) != -1) {
       // Use one MOV if the offset can be expressed in Thumb modified constant
-      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi), ARM::R12)
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi), ScratchReg)
                        .addImm(offset)
                        .add(predOps(Pred, PredReg))
                        .add(condCodeOp()) // No 'S' bit
                        .setMIFlag(MachineInstr::ShadowStack));
     } else {
       // Otherwise use MOV/MOVT to load lower/upper 16 bits of the offset
-      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi16), ARM::R12)
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVi16), ScratchReg)
                        .addImm(offset & 0xffff)
                        .add(predOps(Pred, PredReg))
                        .setMIFlag(MachineInstr::ShadowStack));
       if ((offset >> 16) != 0) {
-        NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVTi16), ARM::R12)
-                         .addReg(ARM::R12)
+        NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::t2MOVTi16), ScratchReg)
+                         .addReg(ScratchReg)
                          .addImm(offset >> 16)
                          .add(predOps(Pred, PredReg))
                          .setMIFlag(MachineInstr::ShadowStack));
@@ -204,10 +254,23 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
                                               ARM::t2LDRs_RET : ARM::t2LDRs),
                              PCLR.getReg())
                      .addReg(ARM::SP)
-                     .addReg(ARM::R12)
+                     .addReg(ScratchReg)
                      .addImm(0)
                      .add(predOps(Pred, PredReg))
                      .setMIFlag(MachineInstr::ShadowStack));
+
+    // Restore the scratch register if we spilled it
+    if (Spill) {
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tPOP))
+                       .add(predOps(Pred, PredReg))
+                       .addReg(ScratchReg));
+    }
+
+    // Insert a return if needed
+    if (NeedReturn) {
+      NewMIs.push_back(BuildMI(MF, DL, TII->get(ARM::tBX_RET))
+                       .add(predOps(Pred, PredReg)));
+    }
   }
 
   // Now insert these new instructions into the basic block

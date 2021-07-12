@@ -396,7 +396,7 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
       case ARM::tPUSH:
         // LR can appear as a GPR not in prologue, in which case we don't care
         if (MI.getFlag(MachineInstr::FrameSetup)) {
-          for (MachineOperand & MO : MI.operands()) {
+          for (MachineOperand & MO : MI.explicit_operands()) {
             if (MO.isReg() && MO.getReg() == ARM::LR) {
               Pushes.push_back(std::make_pair(&MI, &MO));
               break;
@@ -421,7 +421,7 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
           // Handle 2 cases:
           // (1) POP writing to LR
           // (2) POP writing to PC
-          for (MachineOperand & MO : MI.operands()) {
+          for (MachineOperand & MO : MI.explicit_operands()) {
             if (MO.isReg() && (MO.getReg() == ARM::LR || MO.getReg() == ARM::PC)) {
               Pops.push_back(std::make_pair(&MI, &MO));
               break;

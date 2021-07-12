@@ -36,7 +36,7 @@ ARMSilhouetteSTR2STRT::ARMSilhouetteSTR2STRT()
 
 StringRef
 ARMSilhouetteSTR2STRT::getPassName() const {
-  return "ARM Silhouette Store Promotion Pass";
+  return "ARM Silhouette Store Hardening Pass";
 }
 
 //

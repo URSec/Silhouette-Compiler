@@ -85,13 +85,6 @@ EnableSilhouetteStr2Strt("enable-arm-silhouette-str2strt",
                          cl::location(SilhouetteStr2Strt),
                          cl::init(false), cl::Hidden);
 
-bool SilhouetteMemOverhead;
-static cl::opt<bool, true>
-EnableSilhouetteMemOverhead("enable-arm-silhouette-mem-overhead",
-                            cl::desc("Enable Silhouette memory overhead estimation pass"),
-                            cl::location(SilhouetteMemOverhead),
-                            cl::init(false), cl::Hidden);
-
 bool SilhouetteCFI;
 static cl::opt<bool, true>
 EnableSilhouetteCFI("enable-arm-silhouette-cfi",

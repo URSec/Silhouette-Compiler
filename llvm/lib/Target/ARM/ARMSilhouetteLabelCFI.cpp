@@ -109,7 +109,10 @@ RestoreRegister(MachineInstr & MI, Register Reg) {
 // Input:
 //   MF - A reference to the machine function.
 //
-void
+// Return value:
+//   true - The machine function was modified.
+//
+bool
 ARMSilhouetteLabelCFI::insertCFILabelForCall(MachineFunction & MF) {
   MachineBasicBlock & MBB = *MF.begin();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -117,6 +120,8 @@ ARMSilhouetteLabelCFI::insertCFILabelForCall(MachineFunction & MF) {
   // Use "mov r0, r0" as our CFI label
   BuildMI(MBB, MBB.begin(), DebugLoc(), TII->get(ARM::tMOVr), ARM::R0)
   .addReg(ARM::R0);
+
+  return true;
 }
 
 //
@@ -128,13 +133,18 @@ ARMSilhouetteLabelCFI::insertCFILabelForCall(MachineFunction & MF) {
 // Input:
 //   MBB - A reference to a machine basic block.
 //
-void
+// Return value:
+//   true - The machine basic block was modified.
+//
+bool
 ARMSilhouetteLabelCFI::insertCFILabelForJump(MachineBasicBlock & MBB) {
   const TargetInstrInfo * TII = MBB.getParent()->getSubtarget().getInstrInfo();
 
   // Use "mov r0, r0" as our CFI label
   BuildMI(MBB, MBB.begin(), DebugLoc(), TII->get(ARM::tMOVr), ARM::R0)
   .addReg(ARM::R0);
+
+  return true;
 }
 
 //
@@ -150,7 +160,10 @@ ARMSilhouetteLabelCFI::insertCFILabelForJump(MachineBasicBlock & MBB) {
 //   Reg   - The register used by @MI.
 //   Label - The correct label to check.
 //
-void
+// Return value:
+//   true - The machine code was modified.
+//
+bool
 ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
                                       uint16_t Label) {
   MachineBasicBlock & MBB = *MI.getParent();
@@ -225,6 +238,8 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
   if (FreeRegs.empty()) {
     RestoreRegister(MI, ScratchReg);
   }
+
+  return true;
 }
 
 //
@@ -239,9 +254,12 @@ ARMSilhouetteLabelCFI::insertCFICheck(MachineInstr & MI, Register Reg,
 //   Reg   - The register used by @MI.
 //   Label - The correct label to check.
 //
-void
+// Return value:
+//   true - The machine code was modified.
+//
+bool
 ARMSilhouetteLabelCFI::insertCFICheckForCall(MachineInstr & MI, Register Reg) {
-  insertCFICheck(MI, Reg, CFI_LABEL_CALL);
+  return insertCFICheck(MI, Reg, CFI_LABEL_CALL);
 }
 
 //
@@ -256,9 +274,12 @@ ARMSilhouetteLabelCFI::insertCFICheckForCall(MachineInstr & MI, Register Reg) {
 //   Reg   - The register used by @MI.
 //   Label - The correct label to check.
 //
-void
+// Return value:
+//   true - The machine code was modified.
+//
+bool
 ARMSilhouetteLabelCFI::insertCFICheckForJump(MachineInstr & MI, Register Reg) {
-  insertCFICheck(MI, Reg, CFI_LABEL_JMP);
+  return insertCFICheck(MI, Reg, CFI_LABEL_JMP);
 }
 
 //
@@ -341,6 +362,7 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
     }
   }
 
+  bool changed = false;
 #if 1
   //
   // Insert a CFI label before the function if it is visible to other
@@ -350,7 +372,7 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
   if ((!F.hasInternalLinkage() && !F.hasPrivateLinkage()) ||
       F.hasAddressTaken()) {
     if (MF.begin() != MF.end()) {
-      insertCFILabelForCall(MF);
+      changed |= insertCFILabelForCall(MF);
     }
   }
 #else
@@ -370,19 +392,19 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
     case ARM::tBX:        // 0: GPR, 1: predCC, 2: predReg
     case ARM::tBXNS:      // 0: GPR, 1: predCC, 2: predReg
       for (MachineBasicBlock * SuccMBB : MI->getParent()->successors()) {
-        insertCFILabelForJump(*SuccMBB);
+        changed |= insertCFILabelForJump(*SuccMBB);
       }
-      insertCFICheckForJump(*MI, MI->getOperand(0).getReg());
+      changed |= insertCFICheckForJump(*MI, MI->getOperand(0).getReg());
       break;
 
     case ARM::tBLXr:      // 0: predCC, 1: predReg, 2: GPR
     case ARM::tBLXNSr:    // 0: predCC, 1: predReg, 2: GPRnopc
-      insertCFICheckForCall(*MI, MI->getOperand(2).getReg());
+      changed |= insertCFICheckForCall(*MI, MI->getOperand(2).getReg());
       break;
 
     case ARM::tBX_CALL:   // 0: tGPR
     case ARM::tTAILJMPr:  // 0: tcGPR
-      insertCFICheckForCall(*MI, MI->getOperand(0).getReg());
+      changed |= insertCFICheckForCall(*MI, MI->getOperand(0).getReg());
       break;
 
     default:
@@ -390,7 +412,7 @@ ARMSilhouetteLabelCFI::runOnMachineFunction(MachineFunction & MF) {
     }
   }
 
-  return true;
+  return changed;
 }
 
 namespace llvm {

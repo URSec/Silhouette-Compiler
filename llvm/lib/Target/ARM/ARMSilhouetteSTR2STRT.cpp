@@ -455,6 +455,7 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
   }
 
   // Instrument each different type of stores
+  bool changed = false;
   for (MachineInstr * Store : Stores) {
     MachineInstr & MI = *Store;
 
@@ -1692,10 +1693,11 @@ ARMSilhouetteSTR2STRT::runOnMachineFunction(MachineFunction & MF) {
     if (!NewInsts.empty()) {
       insertInstsBefore(MI, NewInsts);
       removeInst(MI);
+      changed = true;
     }
   }
 
-  return true;
+  return changed;
 }
 
 //

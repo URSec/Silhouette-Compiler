@@ -39,11 +39,11 @@ namespace llvm {
     virtual bool runOnMachineFunction(MachineFunction & MF) override;
 
   private:
-    void insertCFILabelForCall(MachineFunction & MF);
-    void insertCFILabelForJump(MachineBasicBlock & MBB);
-    void insertCFICheckForCall(MachineInstr & MI, Register Reg);
-    void insertCFICheckForJump(MachineInstr & MI, Register Reg);
-    void insertCFICheck(MachineInstr & MI, Register Reg, uint16_t Label);
+    bool insertCFILabelForCall(MachineFunction & MF);
+    bool insertCFILabelForJump(MachineBasicBlock & MBB);
+    bool insertCFICheckForCall(MachineInstr & MI, Register Reg);
+    bool insertCFICheckForJump(MachineInstr & MI, Register Reg);
+    bool insertCFICheck(MachineInstr & MI, Register Reg, uint16_t Label);
   };
 
   FunctionPass * createARMSilhouetteLabelCFI(void);

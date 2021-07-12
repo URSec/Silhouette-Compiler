@@ -53,7 +53,10 @@ ARMSilhouetteShadowStack::getPassName() const {
 // Input:
 //   MI - A reference to a PUSH instruction before which to insert instructions.
 //
-void
+// Return value:
+//   true - The PUSH was modified.
+//
+bool
 ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
   MachineFunction & MF = *MI.getMF();
   const TargetInstrInfo * TII = MF.getSubtarget().getInstrInfo();
@@ -146,6 +149,8 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
 
   // Now insert these new instructions into the basic block
   insertInstsBefore(MI, NewMIs);
+
+  return true;
 }
 
 //
@@ -160,7 +165,10 @@ ARMSilhouetteShadowStack::setupShadowStack(MachineInstr & MI) {
 //   MI   - A reference to a POP instruction after which to insert instructions.
 //   PCLR - A reference to the PC or LR operand of the POP.
 //
-void
+// Return value:
+//   true - The POP was modified.
+//
+bool
 ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
                                              MachineOperand & PCLR) {
   MachineFunction & MF = *MI.getMF();
@@ -329,6 +337,8 @@ ARMSilhouetteShadowStack::popFromShadowStack(MachineInstr & MI,
     removeInst(MI);
     break;
   }
+
+  return true;
 }
 
 //
@@ -425,14 +435,15 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
   }
 
   // Instrument each push and pop
+  bool changed = false;
   for (auto & MIMO : Pushes) {
-    setupShadowStack(*MIMO.first);
+    changed |= setupShadowStack(*MIMO.first);
   }
   for (auto & MIMO : Pops) {
-    popFromShadowStack(*MIMO.first, *MIMO.second);
+    changed |= popFromShadowStack(*MIMO.first, *MIMO.second);
   }
 
-  return true;
+  return changed;
 }
 
 //

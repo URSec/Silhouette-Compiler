@@ -32,8 +32,8 @@ namespace llvm {
     virtual bool runOnMachineFunction(MachineFunction & MF) override;
 
   private:
-    void setupShadowStack(MachineInstr & MI);
-    void popFromShadowStack(MachineInstr & MI, MachineOperand & PCLR);
+    bool setupShadowStack(MachineInstr & MI);
+    bool popFromShadowStack(MachineInstr & MI, MachineOperand & PCLR);
   };
 
   FunctionPass * createARMSilhouetteShadowStack(void);

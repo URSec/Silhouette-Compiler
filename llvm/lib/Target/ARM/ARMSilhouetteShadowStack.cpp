@@ -386,8 +386,9 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
     for (MachineInstr & MI : MBB) {
       switch (MI.getOpcode()) {
       // Frame setup instructions in function prologue
+      case ARM::t2STR_PRE:
       case ARM::t2STMDB_UPD:
-        // STMDB_UPD writing to SP! is treated same as PUSH
+        // STR_PRE and STMDB_UPD are considered as PUSH if they write to SP!
         if (MI.getOperand(0).getReg() != ARM::SP) {
           break;
         }
@@ -408,7 +409,8 @@ ARMSilhouetteShadowStack::runOnMachineFunction(MachineFunction & MF) {
       case ARM::t2LDR_POST:
       case ARM::t2LDMIA_UPD:
       case ARM::t2LDMIA_RET:
-        // LDMIA_UPD writing to SP! is treated same as POP
+        // LDR_POST and LDMIA_(UPD|RET) are considered as POP if they write to
+        // SP!
         if (MI.getOperand(1).getReg() != ARM::SP) {
           break;
         }

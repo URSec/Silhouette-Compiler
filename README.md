@@ -18,6 +18,11 @@ following options to `CFLAGS`:
 -mllvm -enable-arm-silhouette-shadowstack # Enable the shadow stack pass
 -mllvm -enable-arm-silhouette-cfi         # Enable the CFI pass
 ```
+Alternatively, you can use the following option to turn on all of the above
+passes as a shortcut:
+```shell
+-mllvm -enable-arm-silhouette # Enable all of the Silhouette passes
+```
 Because Silhouette uses a parallel shadow stack, the compiler needs to
 know the shadow stack offset relative to the regular stack.  This offset
 is 14 MB by default and can be specified with a custom value using the

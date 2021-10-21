@@ -78,6 +78,13 @@ EnableARMLoadStoreOpt("arm-load-store-opt", cl::Hidden,
                       cl::init(true));
 
 // Silhouette commandline options
+bool Silhouette;
+static cl::opt<bool, true>
+EnableSilhouette("enable-arm-silhouette",
+                 cl::desc("Enable all of Silhouette passes"),
+                 cl::location(Silhouette),
+                 cl::init(false), cl::Hidden);
+
 bool SilhouetteStr2Strt;
 static cl::opt<bool, true>
 EnableSilhouetteStr2Strt("enable-arm-silhouette-str2strt",
@@ -584,19 +591,19 @@ void ARMPassConfig::addPreEmitPass() {
 
   // Add Silhouette passes.
 
-  if (EnableSilhouetteShadowStack) {
+  if (EnableSilhouette || EnableSilhouetteShadowStack) {
     addPass(createARMSilhouetteShadowStack());
   }
 
-  if (EnableSilhouetteSFI != NoSFI || EnableSilhouetteStr2Strt) {
+  if (EnableSilhouette || EnableSilhouetteSFI != NoSFI || EnableSilhouetteStr2Strt) {
     addPass(createARMSilhouetteSFI());
   }
 
-  if (EnableSilhouetteStr2Strt) {
+  if (EnableSilhouette || EnableSilhouetteStr2Strt) {
     addPass(createARMSilhouetteSTR2STRT());
   }
 
-  if (EnableSilhouetteCFI) {
+  if (EnableSilhouette || EnableSilhouetteCFI) {
     addPass(createARMSilhouetteLabelCFI());
   }
 
